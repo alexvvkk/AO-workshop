@@ -46,6 +46,6 @@ Gear and game information is compiled from the [Arcane Odyssey Armor Builder](ht
 
 Dragon color stats and level overrides follow the wiki's [equipment data module](https://roblox-arcane-odyssey.fandom.com/wiki/Module:Equipment/data).
 
-Non-Dragon Arcanium armor and accessories other than Arcanium Bracelets can use regular modifiers; Dragon gear remains Atlantean-only.
+Non-Dragon Arcanium and Mancer armor and accessories other than Arcanium Bracelets can use regular modifiers; Dragon gear remains Atlantean-only.
 
 Dragon gear uses the exact stat rows for its selected color. Regular Dragon gear defaults to Brown; Corrupted Dragon gear defaults to Dragon. Since the wiki lists only colored set items, a Dragon color cannot be cleared.

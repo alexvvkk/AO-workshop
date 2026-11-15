@@ -298,7 +298,7 @@ function canUseModifier(gear,item){
   const isAtlanteanOnlyItem=item?.name==="Jewel Amulet";
   const isLostSet=item?.lostSet===true||/\blost\b/i.test(item?.name||"");
   const isGildedLostSet=gear.modifier==="gilded"&&isLostSet;
-  const isArcaniumGear=/\barcanium\b/i.test(item?.name||"");
+  const isArcaniumGear=/\barcanium\b|mancer/i.test(item?.name||"");
   const isArcaniumBracelet=isArcaniumGear&&/\bbracelet\b/i.test(item?.name||"");
   const isModifierLocked=item?.essenceLocked||isLostSet;
   const canUseRegularModifiers=!item?.dragonGear&&(item?.modifierAllowed!==false||(isArcaniumGear&&!isArcaniumBracelet));
