@@ -29,6 +29,7 @@ The site uses relative asset and script paths, so it works both at a project URL
 - `styles.css` — layout and styling.
 - `app.js` — planner behavior, calculations, and build sharing.
 - `stat-build.js` — stat allocations, class eligibility, and the three-weapon skill planner with wiki-derived weapon levels.
+- Gear, gem, and weapon selectors list options in alphabetical order.
 - `item-catalog.js`, `magic-gear-catalog.js`, `fighting-gear-catalog.js` — gear data.
 - `newer-armor-records.js` — newer armor, Dragon color, and Magic/Strength bonus records.
 - `wiki-armor-records.js` — per-level armor and accessory stats from matching item pages on the Arcane Odyssey Wiki.

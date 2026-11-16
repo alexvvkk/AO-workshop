@@ -290,7 +290,11 @@ function getWeaponLevelLabel(selectedType,variant,quality){
 function getAvailableWeaponTypes(classResult){
   const named=WEAPON_TYPES.filter(type=>type.isNamedWeapon&&getWeaponVariantOptions(type,classResult).length);
   const generic=WEAPON_TYPES.filter(type=>!type.isNamedWeapon&&getWeaponVariantOptions(type,classResult).length);
-  return [...named,...generic];
+  return [...named,...generic].sort((a,b)=>{
+    const nameA=a.isNamedWeapon?a.value:getWeaponSearchLabel(a.baseType);
+    const nameB=b.isNamedWeapon?b.value:getWeaponSearchLabel(b.baseType);
+    return nameA.localeCompare(nameB,undefined,{sensitivity:"base"});
+  });
 }
 function normalizeWeaponSearchText(value){return String(value).toLowerCase().replace(/[\s-]+/g,"");}
 function getFilteredWeaponTypes(index,classResult){

@@ -598,7 +598,8 @@ function getPickerBaseChoices(slotId,kind,index=""){
   if(kind==="enchant")return ENCHANTS.map(([value,label])=>({value,label}));
   if(kind==="modifier")return MODIFIERS.filter(([value])=>canUseModifier({...gear,modifier:value},item)).map(([value,label])=>({value,label}));
   if(kind==="fusionGem"&&!gear.sockets?.[Number(index)]?.gem)return [];
-  if(kind==="gem"||kind==="fusionGem")return GEMS.map(gem=>({value:gem.id,label:[gem.name,...(gem.variants||[])].join(" / ")}));
+  if(kind==="gem"||kind==="fusionGem")return GEMS.map(gem=>({value:gem.id,label:[gem.name,...(gem.variants||[])].join(" / ")}))
+    .sort((a,b)=>a.label.localeCompare(b.label,undefined,{sensitivity:"base"}));
   return [];
 }
 function getPickerPreview(slotId,kind,index,value){
@@ -717,7 +718,7 @@ function getFilteredItems(slot,query=""){
     return !accessoryConflictForSlot(slot.id,item)
       &&[...statFilters].every(key=>safeNumber(item.stats[key])!==0)
       &&(!search||item.name.toLowerCase().includes(search)||arcsphereAlias.includes(search));
-  });
+  }).sort((a,b)=>a.name.localeCompare(b.name,undefined,{sensitivity:"base"}));
 }
 function renderItemResults(slotId){
   const slot=SLOTS.find(entry=>entry.id===slotId);
