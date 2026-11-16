@@ -180,8 +180,10 @@ function updateItemFromWiki(item){
   const sourceRows=newerRecord?getNewerArmorStatRows(newerRecord):[];
   const statRows=record.statRows.map(row=>{
     const sourceRow=sourceRows.find(entry=>entry.level===row.level);
-    if(!sourceRow||sourceRow.stats.drawback===undefined)return row;
-    return {...row,stats:{...row.stats,drawback:sourceRow.stats.drawback}};
+    const stats={...row.stats};
+    if(sourceRow?.stats.drawback!==undefined)stats.drawback=sourceRow.stats.drawback;
+    if(stats.warding!==undefined||sourceRow?.stats.warding!==undefined)stats.warding=1;
+    return stats.drawback===row.stats.drawback&&stats.warding===row.stats.warding?row:{...row,stats};
   });
   return {...item,minLevel:record.minLevel,maxLevel:record.maxLevel,statRows};
 }
