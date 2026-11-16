@@ -135,7 +135,8 @@ h2{font:500 22px var(--serif);margin:5px 0 0}
 .health-total small b{color:#c9cbbd;font-weight:500}
 .total-stat{display:flex;align-items:center;justify-content:space-between;padding:8px 0}
 .total-stat span{color:#b4b6a8;font-size:12px}
-.total-stat .stat-name{display:inline-flex;align-items:center}
+.total-stat .stat-name{display:inline-flex;align-items:center;gap:6px}
+.total-stat .stat-percent{color:#c8c8c8;font:600 11px/1 var(--mono);white-space:nowrap}
 .total-stat b{font:12px var(--mono);color:#e8e8d9}
 .total-stat.primary span,.total-stat.primary b{color:var(--lime)}
 .summary-foot{display:flex;justify-content:space-between;color:var(--muted);font-size:10px;padding:9px 0;border-top:1px solid #ffffff0b}

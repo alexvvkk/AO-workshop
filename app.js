@@ -462,6 +462,28 @@ function getEfficiencyPoints(stats){
     +["range","haste","size","dexterity","regeneration","pierce","resistance","warding","drawback","insanity"]
       .reduce((sum,key)=>sum+(stats[key]||0),0);
 }
+function getSubstatEffectPercentage(key,value,level){
+  if(value<=0)return null;
+  const levelCap=clampGameLevel(level);
+  const baseline=amount=>{
+    if(amount<=0)return 0;
+    const log=Math.log(.1*amount+4);
+    return 1.35*((16*Math.pow(log,3)*.09+.15*amount)/(.1+.15*Math.sqrt(levelCap))-.79);
+  };
+  switch(key){
+    case "size":return .6*baseline(value);
+    case "range":return .45*baseline(value);
+    case "dexterity":return .25*.45*baseline(value);
+    case "resistance":return .7*baseline(value);
+    case "pierce":return baseline(value);
+    case "regeneration":return 100*(.03375*value)/(.75*(93+7*levelCap)/100);
+    case "haste":{
+      const log=Math.log(.2*value+4);
+      return 1.35*((16*Math.pow(log,3)*.09+.3*value)/(.1+.15*Math.sqrt(levelCap))-.79);
+    }
+    default:return null;
+  }
+}
 function formatEfficiencyPoints(value){
   const rounded=Math.round(value*10)/10;
   return Number.isInteger(rounded)?String(rounded):rounded.toFixed(1);
@@ -897,9 +919,13 @@ function updateSummary(){
     }
   }
   document.getElementById("summary-efficiency-points").textContent=formatEfficiencyPoints(getEfficiencyPoints(total));
-  const order=["power","defense","range","haste","size","dexterity","regeneration","pierce","resistance","warding","drawback","insanity"];
-  document.getElementById("stat-list").innerHTML=order.filter(key=>Math.abs(total[key])>1e-9).map(key=>`<div class="total-stat${key==="power"||key==="defense"?" primary":""}"><span class="stat-name">${renderStatIcon(key)}</span><b>${formatStat(total[key])}</b></div>`).join("");
   const level=clampGameLevel(build.level);
+  const order=["power","defense","range","haste","size","dexterity","regeneration","pierce","resistance","warding","drawback","insanity"];
+  document.getElementById("stat-list").innerHTML=order.filter(key=>Math.abs(total[key])>1e-9).map(key=>{
+    const percentage=getSubstatEffectPercentage(key,total[key],level);
+    const effect=percentage===null?"":`<small class="stat-percent" title="Estimated effect at level ${level}">${percentage>0?"+":""}${percentage.toFixed(1)}%</small>`;
+    return `<div class="total-stat${key==="power"||key==="defense"?" primary":""}"><span class="stat-name">${renderStatIcon(key)}${effect}</span><b>${formatStat(total[key])}</b></div>`;
+  }).join("");
   const baseHealth=Math.round(1000+(level-1)*3.83);
   const ritual=DRAGONBLOOD_RITUALS.find(entry=>entry.tier===Number(build.dragonbloodTier))||DRAGONBLOOD_RITUALS[0];
   const ritualHealth=Math.round(baseHealth*ritual.healthMultiplier);
