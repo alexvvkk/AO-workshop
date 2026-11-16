@@ -1020,6 +1020,114 @@ window.BUILDER_NEW_ARMOR_DATA = [
     "type": "Accessory"
   },
   {
+    "jewels": 0,
+    "modifiers": {
+      "all": true
+    },
+    "name": "Power Amulet [Fair]",
+    "rarity": "Uncommon",
+    "stats": {
+      "power": 0.725
+    },
+    "type": "Amulet"
+  },
+  {
+    "jewels": 0,
+    "modifiers": {
+      "all": true
+    },
+    "name": "Defense Amulet [Fair]",
+    "rarity": "Uncommon",
+    "stats": {
+      "defense": 0.83334
+    },
+    "type": "Amulet"
+  },
+  {
+    "jewels": 0,
+    "modifiers": {
+      "all": true
+    },
+    "name": "Size Amulet [Fair]",
+    "rarity": "Uncommon",
+    "stats": {
+      "size": 1.5
+    },
+    "type": "Amulet"
+  },
+  {
+    "jewels": 0,
+    "modifiers": {
+      "all": true
+    },
+    "name": "Dexterity Amulet [Fair]",
+    "rarity": "Uncommon",
+    "stats": {
+      "dexterity": 1.5
+    },
+    "type": "Amulet"
+  },
+  {
+    "jewels": 0,
+    "modifiers": {
+      "all": true
+    },
+    "name": "Haste Amulet [Fair]",
+    "rarity": "Uncommon",
+    "stats": {
+      "haste": 1.5
+    },
+    "type": "Amulet"
+  },
+  {
+    "jewels": 0,
+    "modifiers": {
+      "all": true
+    },
+    "name": "Range Amulet [Fair]",
+    "rarity": "Uncommon",
+    "stats": {
+      "range": 1.5
+    },
+    "type": "Amulet"
+  },
+  {
+    "jewels": 0,
+    "modifiers": {
+      "all": true
+    },
+    "name": "Pierce Amulet [Fair]",
+    "rarity": "Uncommon",
+    "stats": {
+      "pierce": 1.5
+    },
+    "type": "Amulet"
+  },
+  {
+    "jewels": 0,
+    "modifiers": {
+      "all": true
+    },
+    "name": "Resistance Amulet [Fair]",
+    "rarity": "Uncommon",
+    "stats": {
+      "resistance": 1.5
+    },
+    "type": "Amulet"
+  },
+  {
+    "jewels": 0,
+    "modifiers": {
+      "all": true
+    },
+    "name": "Regeneration Amulet [Fair]",
+    "rarity": "Uncommon",
+    "stats": {
+      "regeneration": 1.5
+    },
+    "type": "Amulet"
+  },
+  {
     "jewels": 2,
     "modifiers": {
       "all": true
@@ -1225,6 +1333,19 @@ window.BUILDER_NEW_ARMOR_DATA = [
     "type": "Strength Accessory"
   },
   {
+    "jewels": 0,
+    "modifiers": {
+      "all": true
+    },
+    "name": "Oracle Amulet [Poor]",
+    "rarity": "Rare",
+    "stats": {
+      "defense": 0.375,
+      "regeneration": 1.25
+    },
+    "type": "Spirit Amulet"
+  },
+  {
     "jewels": 2,
     "modifiers": {
       "all": true
@@ -1377,6 +1498,19 @@ window.BUILDER_NEW_ARMOR_DATA = [
       "dexterity": 0.603
     },
     "type": "Leggings"
+  },
+  {
+    "boss_drop": true,
+    "jewels": 0,
+    "max_level": 160,
+    "name": "Archon Quartz Amulet",
+    "rarity": "Rare",
+    "stats": {
+      "defense": 0.625,
+      "dexterity": 0.45
+    },
+    "type": "Amulet",
+    "image": "../assets/Archon_Quartz_Amulet.webp"
   },
   {
     "boss_drop": true,
@@ -2497,6 +2631,13 @@ window.BUILDER_NEW_ARMOR_DATA = [
     "type": "Accessory"
   },
   {
+    "jewels": 5,
+    "name": "Jewel Amulet",
+    "rarity": "Rare",
+    "stats": {},
+    "type": "Amulet"
+  },
+  {
     "armor-stats": {
       "pierce": 1
     },
@@ -3342,3 +3483,4 @@ window.BUILDER_NEW_ARMOR_DATA = [
     "type": "Corrupted Dragon Color"
   }
 ];
+// praying fair amulets disapear
