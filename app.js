@@ -921,11 +921,12 @@ function updateSummary(){
   document.getElementById("summary-efficiency-points").textContent=formatEfficiencyPoints(getEfficiencyPoints(total));
   const level=clampGameLevel(build.level);
   const order=["power","defense","range","haste","size","dexterity","regeneration","pierce","resistance","warding","drawback","insanity"];
-  document.getElementById("stat-list").innerHTML=order.filter(key=>Math.abs(total[key])>1e-9).map(key=>{
+  const statRows=order.filter(key=>Math.abs(total[key])>1e-9).map(key=>{
     const percentage=getSubstatEffectPercentage(key,total[key],level);
     const effect=percentage===null?"":`<small class="stat-percent" title="Estimated effect at level ${level}">${percentage>0?"+":""}${percentage.toFixed(1)}%</small>`;
-    return `<div class="total-stat${key==="power"||key==="defense"?" primary":""}"><span class="stat-name">${renderStatIcon(key)}${effect}</span><b>${formatStat(total[key])}</b></div>`;
+    return `<div class="total-stat${key==="power"||key==="defense"?" primary":""}">${effect}<span class="stat-name">${renderStatIcon(key)}</span><b>${formatStat(total[key])}</b></div>`;
   }).join("");
+  document.getElementById("stat-list").innerHTML=`<div class="stat-total-heading"><span>Effect</span><span>Stat</span><span>Amount</span></div>${statRows}`;
   const baseHealth=Math.round(1000+(level-1)*3.83);
   const ritual=DRAGONBLOOD_RITUALS.find(entry=>entry.tier===Number(build.dragonbloodTier))||DRAGONBLOOD_RITUALS[0];
   const ritualHealth=Math.round(baseHealth*ritual.healthMultiplier);
