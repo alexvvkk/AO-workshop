@@ -923,7 +923,7 @@ function updateSummary(){
   const order=["power","defense","range","haste","size","dexterity","regeneration","pierce","resistance","warding","drawback","insanity"];
   const statRows=order.filter(key=>Math.abs(total[key])>1e-9).map(key=>{
     const percentage=getSubstatEffectPercentage(key,total[key],level);
-    const effect=percentage===null?"":`<small class="stat-percent" title="Estimated effect at level ${level}">${percentage>0?"+":""}${percentage.toFixed(1)}%</small>`;
+    const effect=percentage===null?'<small class="stat-percent stat-percent-empty" aria-hidden="true"></small>':`<small class="stat-percent" title="Estimated effect at level ${level}">${percentage>0?"+":""}${percentage.toFixed(1)}%</small>`;
     return `<div class="total-stat${key==="power"||key==="defense"?" primary":""}">${effect}<span class="stat-name">${renderStatIcon(key)}</span><b>${formatStat(total[key])}</b></div>`;
   }).join("");
   document.getElementById("stat-list").innerHTML=`<div class="stat-total-heading"><span>Effect</span><span>Stat</span><span>Amount</span></div>${statRows}`;
