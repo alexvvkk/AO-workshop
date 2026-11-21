@@ -1,6 +1,6 @@
 const SHIP_STAT_KEYS=["durability","stability","turning","speed","sailResilience","ramStrength","ramDefense","magicStorage"];
 const SHIP_STAT_LABELS={durability:"Durability",stability:"Stability",turning:"Turning",speed:"Speed",sailResilience:"Sail Resilience",ramStrength:"Ram Strength",ramDefense:"Ram Defense",ramSpeed:"Ram Speed",magicStorage:"Magic Storage"};
-const SHIP_STAT_ICONS={durability:"Defense.webp",stability:"Stability.webp",turning:"Turning_Speed.webp",speed:"shipSpeed.webp",sailResilience:"Sail_Resilience.webp",ramStrength:"Ram_Strength.webp",ramDefense:"Ram_Defense.webp"};
+const SHIP_STAT_ICONS={durability:"Defense.webp",stability:"Stability.webp",turning:"Turning_Speed.webp",speed:"shipSpeed.webp",sailResilience:"Sail_Resilience.webp",ramStrength:"Ram_Strength.webp",ramDefense:"Ram_Defense.webp",magicStorage:"Magic_Storage.webp"};
 const SHIPS=[
   {id:"sailboat",name:"Sailboat",image:"Sailboat.webp",level:10,quartermasters:1,deckhands:1,attachmentSlots:0,canUseSiegeWeapons:false,canUseRam:false,stats:{durability:1200,stability:30,turning:80,speed:50,sailResilience:65}},
   {id:"caravel",name:"Caravel",image:"Caravel.webp",level:25,quartermasters:1,deckhands:2,attachmentSlots:2,canUseSiegeWeapons:false,canUseRam:true,stats:{durability:2500,stability:45,turning:70,speed:60,sailResilience:65}},
