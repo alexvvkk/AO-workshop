@@ -195,6 +195,9 @@ function updateItemFromNewerArmor(item){
   const sourceCategory=NEWER_ARMOR_CATEGORY_BY_TYPE[recordType];
   const category=ITEM_CATEGORY_BY_SUBTYPE[item.subType]||sourceCategory||item.category;
   if(!record)return category===item.category?item:{...item,category};
+  if(/(?:arcanium|mancer)/i.test(item.name||"")&&Array.isArray(item.statRows)&&item.statRows.length){
+    return {...item,category:item.category||category,minLevel:item.minLevel??record.min_level??100,maxLevel:170,jewelSlots:item.jewelSlots??record.jewels??0,statRows:item.statRows};
+  }
   const tool=item.magicKey
     ?NEWER_ARMOR_RECORDS.find(entry=>entry.type==="Magic"&&entry.name===item.magicKey)
     :item.fightingStyle?NEWER_ARMOR_RECORDS.find(entry=>entry.type==="Fighting Style"&&entry.name===item.fightingStyle):null;
