@@ -40,9 +40,9 @@ const ENCHANTS = [
   ["resilient", "Resilient"], ["piercing", "Piercing"], ["virtuous", "Virtuous"]
 ];
 const ENCHANT_STATS = {
-  powerful:{power:.9764705882}, armored:{defense:8}, brisk:{dexterity:2.625}, charged:{power:.529411765,haste:1.40625},
-  tracking:{dexterity:1.40625,range:1.40625}, deadeye:{range:2.647058824}, enhanced:{haste:2.625}, explosive:{size:2.588235294},
-  healing:{regeneration:2.625}, resilient:{resistance:2.625}, piercing:{pierce:2.625}, virtuous:{defense:5.625}
+  powerful:{power:.7875}, armored:{defense:8}, brisk:{dexterity:2.625}, charged:{power:.529411765,haste:1.40625},
+  tracking:{dexterity:1.40625,range:1.40625}, deadeye:{range:2.625}, enhanced:{haste:2.625}, explosive:{size:2.625},
+  healing:{regeneration:2.625}, resilient:{resistance:2.625}, piercing:{pierce:2.625}, virtuous:{defense:4.5}
 };
 const ENCHANT_UPGRADES = {strong:"powerful",hard:"armored",accurate:"deadeye",amplified:"enhanced",bursting:"explosive",swift:"brisk"};
 const ENCHANT_FLAT_STATS = {virtuous:{warding:1}};
@@ -54,14 +54,14 @@ const MODIFIERS = [
   ["imbued","Imbued · Base stat bonus"],["sandy","Sandy · Haste"],["superheated","Superheated · Power + Haste"]
 ];
 const MODIFIER_STATS = {
-  abyssal:{defense:2.2669,resistance:1.6471}, archaic:{size:1.4118},
+  abyssal:{defense:2.2669,resistance:1.6471}, archaic:{size:26/17},
   blasted:{power:.4725}, crystalline:{dexterity:1.4118},
   drowned:{defense:2.3,size:.82}, frozen:{defense:4.4706},
   sandy:{haste:1.4118}, superheated:{power:.25,haste:.8236}
 };
 const MODIFIER_DESCRIPTIONS = {
   abyssal:"Per 10 levels: +2.2669 Defense, +1.6471 Resistance.",
-  archaic:"Per 10 levels: +1.4118 Size.", atlantean:"+1 Insanity and the first missing stat (base gear, enchant, and jewels count). Cannot be applied with Virtuous.",
+  archaic:"Per 10 levels: ~1.5294 Size.", atlantean:"+1 Insanity and the first missing stat (base gear, enchant, and jewels count). Cannot be applied with Virtuous.",
   blasted:"Per 10 levels: +0.4725 Power.", crystalline:"Per 10 levels: +1.4118 Dexterity.",
   drowned:"Per 10 levels: +2.3 Defense and +0.82 Size.", frozen:"Per 10 levels: +4.4706 Defense.",
   gilded:"+1 jewel socket.", imbued:"Adds roughly half of a basic modifier for each unique base stat on the item.",
@@ -89,25 +89,25 @@ const GEM_DEFENSE_DELTA = 1-Number.EPSILON;
 const GEM_DEFENSE_DELTA_IDS = new Set(["defense","defense-size"]);
 const POWER_SUBSTAT_GEM_IDS = new Set(["power-size","power-dexterity","power-range"]);
 const GEMS = [
-  {id:"defense",name:"Amethyst",variants:["Diamond","Onyx"],stats:[{defense:6.5},{defense:13.1},{defense:19.6},{defense:26.2},{defense:32.8},{defense:39}]},
-  {id:"power",name:"Ruby",variants:["Sunstone","Zircon"],stats:[{power:1},{power:1.4},{power:2.1},{power:2.9},{power:3.6},{power:4}]},
-  {id:"dexterity",name:"Sapphire",variants:["Tanzanite"],stats:[{dexterity:2.1},{dexterity:4.3},{dexterity:6.5},{dexterity:8.7},{dexterity:10.9},{dexterity:13}]},
-  {id:"size",name:"Emerald",variants:["Peridot"],stats:[{size:2.1},{size:4.3},{size:6.5},{size:8.7},{size:10.9},{size:13}]},
-  {id:"range",name:"Aquamarine",variants:["Tourmaline"],stats:[{range:2.1},{range:4.3},{range:6.5},{range:8.7},{range:10.9},{range:13}]},
-  {id:"haste",name:"Citrine",variants:["Topaz"],stats:[{haste:2.1},{haste:4.3},{haste:6.5},{haste:8.7},{haste:10.9},{haste:13}]},
-  {id:"dexterity-range",name:"Lapis Lazuli",stats:[{dexterity:1.6,range:1.6},{dexterity:3.2,range:3.2},{dexterity:4.9,range:4.9},{dexterity:6.5,range:6.5},{dexterity:8.2,range:8.2},{dexterity:9,range:9}]},
-  {id:"dexterity-haste",name:"Larimar",stats:[{dexterity:1.6,haste:1.6},{dexterity:3.2,haste:3.2},{dexterity:4.9,haste:4.9},{dexterity:6.5,haste:6.5},{dexterity:8.2,haste:8.2},{dexterity:9,haste:9}]},
-  {id:"defense-size",name:"Agate",stats:[{size:1,defense:6.5},{size:2.1,defense:13.1},{size:3.2,defense:19.6},{size:4.3,defense:26.2},{size:5.4,defense:32.8},{size:6,defense:39}]},
-  {id:"power-size",name:"Malachite",fusionStats:{power:4},stats:[{power:1,size:1},{power:1.4,size:2.1},{power:2.1,size:3.2},{power:2.9,size:4.3},{power:3.6,size:5.4},{power:3.9,size:6}]},
-  {id:"power-dexterity",name:"Candelaria",fusionStats:{power:4},stats:[{power:1,dexterity:1},{power:1.4,dexterity:2.1},{power:2.1,dexterity:3.2},{power:2.9,dexterity:4.3},{power:3.6,dexterity:5.4},{power:3.9,dexterity:6}]},
-  {id:"power-range",name:"Morenci",fusionStats:{power:4},stats:[{power:1,range:1},{power:1.4,range:2.1},{power:2.1,range:3.2},{power:2.9,range:4.3},{power:3.6,range:5.4},{power:3.9,range:6}]},
+  {id:"defense",name:"Amethyst",variants:["Diamond","Onyx"],stats:[{defense:6.5},{defense:13.1},{defense:19.6},{defense:26.2},{defense:32.8},{defense:39.3}]},
+  {id:"power",name:"Ruby",variants:["Sunstone","Zircon"],stats:[{power:1},{power:1.3},{power:1.9},{power:2.6},{power:3.2},{power:3.9}]},
+  {id:"dexterity",name:"Sapphire",variants:["Tanzanite"],stats:[{dexterity:2.1},{dexterity:4.3},{dexterity:6.5},{dexterity:8.7},{dexterity:10.9},{dexterity:13.1}]},
+  {id:"size",name:"Emerald",variants:["Peridot"],stats:[{size:2.1},{size:4.3},{size:6.5},{size:8.7},{size:10.9},{size:13.1}]},
+  {id:"range",name:"Aquamarine",variants:["Tourmaline"],stats:[{range:2.1},{range:4.3},{range:6.5},{range:8.7},{range:10.9},{range:13.1}]},
+  {id:"haste",name:"Citrine",variants:["Topaz"],stats:[{haste:2.1},{haste:4.3},{haste:6.5},{haste:8.7},{haste:10.9},{haste:13.1}]},
+  {id:"dexterity-range",name:"Lapis Lazuli",stats:[{dexterity:1.6,range:1.6},{dexterity:3.2,range:3.2},{dexterity:4.9,range:4.9},{dexterity:6.5,range:6.5},{dexterity:8.2,range:8.2},{dexterity:9.8,range:9.8}]},
+  {id:"dexterity-haste",name:"Larimar",stats:[{dexterity:1.6,haste:1.6},{dexterity:3.2,haste:3.2},{dexterity:4.9,haste:4.9},{dexterity:6.5,haste:6.5},{dexterity:8.2,haste:8.2},{dexterity:9.8,haste:9.8}]},
+  {id:"defense-size",name:"Agate",stats:[{size:1,defense:6.5},{size:2.1,defense:13.1},{size:3.2,defense:19.6},{size:4.3,defense:26.2},{size:5.4,defense:32.8},{size:6.5,defense:39.3}]},
+  {id:"power-size",name:"Malachite",fusionStats:{power:4},stats:[{power:1,size:1},{power:1.3,size:2.1},{power:1.9,size:3.2},{power:2.6,size:4.3},{power:3.2,size:5.4},{power:3.9,size:6.5}]},
+  {id:"power-dexterity",name:"Candelaria",fusionStats:{power:4},stats:[{power:1,dexterity:1},{power:1.3,dexterity:2.1},{power:1.9,dexterity:3.2},{power:2.6,dexterity:4.3},{power:3.2,dexterity:5.4},{power:3.9,dexterity:6.5}]},
+  {id:"power-range",name:"Morenci",fusionStats:{power:4},stats:[{power:1,range:1},{power:1.3,range:2.1},{power:1.9,range:3.2},{power:2.6,range:4.3},{power:3.2,range:5.4},{power:3.9,range:6.5}]},
   {id:"double-effect",name:"Musgravite",stats:[{},{},{},{},{},{}]},
-  {id:"defense-drawback",name:"Painite",stats:[{drawback:1,defense:31.3},{drawback:1,defense:62.7},{drawback:1,defense:94},{drawback:1,defense:125.4},{drawback:1,defense:156.7},{drawback:1,defense:188}]},
-  {id:"range-haste",name:"Kyanite",stats:[{range:1.6,haste:1.6},{range:3.2,haste:3.2},{range:4.9,haste:4.9},{range:6.5,haste:6.5},{range:8.2,haste:8.2},{range:9,haste:9}]},
-  {id:"range-size",name:"Variscite",stats:[{range:1.6,size:1.6},{range:3.2,size:3.2},{range:4.9,size:4.9},{range:6.5,size:6.5},{range:8.2,size:8.2},{range:9,size:9}]},
-  {id:"resistance",name:"Azurite",stats:[{resistance:3.2},{resistance:6.5},{resistance:9.8},{resistance:13.1},{resistance:16.4},{resistance:19}]},
-  {id:"regeneration",name:"Aventurine",stats:[{regeneration:3.2},{regeneration:6.5},{regeneration:9.8},{regeneration:13.1},{regeneration:16.4},{regeneration:19}]},
-  {id:"pierce",name:"Fire Opal",stats:[{pierce:3.2},{pierce:6.5},{pierce:9.8},{pierce:13.1},{pierce:16.4},{pierce:19}]}
+  {id:"defense-drawback",name:"Painite",stats:[{drawback:1,defense:31.3},{drawback:1,defense:62.7},{drawback:1,defense:94},{drawback:1,defense:125.4},{drawback:1,defense:156.7},{drawback:1,defense:188.1}]},
+  {id:"range-haste",name:"Kyanite",stats:[{range:1.6,haste:1.6},{range:3.2,haste:3.2},{range:4.9,haste:4.9},{range:6.5,haste:6.5},{range:8.2,haste:8.2},{range:9.8,haste:9.8}]},
+  {id:"range-size",name:"Variscite",stats:[{range:1.6,size:1.6},{range:3.2,size:3.2},{range:4.9,size:4.9},{range:6.5,size:6.5},{range:8.2,size:8.2},{range:9.8,size:9.8}]},
+  {id:"resistance",name:"Azurite",stats:[{resistance:3.2},{resistance:6.5},{resistance:9.8},{resistance:13.1},{resistance:16.4},{resistance:19.6}]},
+  {id:"regeneration",name:"Aventurine",stats:[{regeneration:3.2},{regeneration:6.5},{regeneration:9.8},{regeneration:13.1},{regeneration:16.4},{regeneration:19.6}]},
+  {id:"pierce",name:"Fire Opal",stats:[{pierce:3.2},{pierce:6.5},{pierce:9.8},{pierce:13.1},{pierce:16.4},{pierce:19.6}]}
 ];
 const DRAGONBLOOD_RITUALS = [
   {tier:0,label:"None",healthMultiplier:0,beastDefensePercent:0},
@@ -128,6 +128,28 @@ const ITEM_CATEGORY_BY_SUBTYPE={Head:"Accessory",Leggings:"Boots"};
 const NEWER_ARMOR_SCALE_VALUES={power:3.5,defense:27,size:5,dexterity:5,range:5,haste:5,resistance:5,regeneration:5,pierce:5,warding:1,drawback:1,insanity:1};
 const NEWER_ARMOR_NONSCALING_STATS=new Set(["insanity","warding","drawback"]);
 const NEWER_ARMOR_EP_VALUES={power:1/3,defense:3,size:1,dexterity:1,range:1,haste:1,resistance:1,regeneration:1,pierce:1,warding:1.5,drawback:-2,insanity:-3};
+const ARCSPHERE_WIKI_STAT_RANGES={
+  Acid:{power:[6.3,10.8],pierce:[30,51]},
+  Ash:{power:[8.6,14.7],size:[22.5,38.2]},
+  Crystal:{power:[6.3,10.8],defense:[45.2,76.9],haste:[15,25.5]},
+  Earth:{power:[6.3,10.8],defense:[67.8,115.3],size:[7.5,12.7]},
+  Explosion:{power:[6.3,10.8],size:[30,51]},
+  Fire:{power:[15.6,26.5]},
+  Glass:{power:[17.9,30.4],defense:[-22.7,-38.5]},
+  Ice:{power:[6.3,10.8],defense:[22.6,38.4],resistance:[22.5,38.2]},
+  Light:{power:[6.3,10.8],size:[-7.5,-12.8],dexterity:[37.5,63.7]},
+  Lightning:{power:[6.3,10.8],range:[7.5,12.7],dexterity:[22.5,38.2]},
+  Magma:{power:[11,18.7],size:[15,25.5]},
+  Metal:{power:[6.3,10.8],defense:[90.4,153.8],range:[-7.5,-12.8],resistance:[7.5,12.7]},
+  Plasma:{power:[13.3,22.6],haste:[7.5,12.7]},
+  Poison:{power:[13.3,22.6],pierce:[7.5,12.7]},
+  Sand:{power:[6.3,10.8],haste:[30,51]},
+  Shadow:{power:[11,18.7],dexterity:[15,25.5]},
+  Snow:{power:[6.3,10.8],size:[22.5,38.2],dexterity:[7.5,12.7]},
+  Water:{power:[6.3,10.8],haste:[7.5,12.7],size:[22.5,38.2]},
+  Wind:{power:[6.3,10.8],range:[7.5,12.7],size:[7.5,12.7],dexterity:[15,25.5]},
+  Wood:{power:[8.6,14.7],defense:[67.8,115.3]}
+};
 function getNewerArmorSourceForItem(item){
   if(item.magicKey){
     const name=(item.magicPiece||item.name.slice(item.magicKey.length)).trim();
@@ -145,16 +167,23 @@ function getNewerArmorSourceForItem(item){
 }
 function getNewerArmorStatRows(record,item=null,tool=null){
   const levels=Array.from({length:8},(_,index)=>100+index*10);
+  const isArcaniumRecord=/^Arcanium |^Arcmancer |^Arcanium$/.test(record.name||"");
   return levels.map(level=>{
     const levelFactor=Math.floor(level/10);
     const stats=Object.fromEntries(Object.entries(record.stats||{}).map(([key,value])=>[
-      key,NEWER_ARMOR_NONSCALING_STATS.has(key)?value:Math.floor(value*(NEWER_ARMOR_SCALE_VALUES[key]??1)*levelFactor)
+      key,NEWER_ARMOR_NONSCALING_STATS.has(key)?value:(isArcaniumRecord
+        ?Math.round(value*(NEWER_ARMOR_SCALE_VALUES[key]??1)*levelFactor*10)/10
+        :Math.floor(value*(NEWER_ARMOR_SCALE_VALUES[key]??1)*levelFactor))
     ]));
     if(tool?.["armor-stats"]){
-      const reduction=record.type.includes("Chestpiece")||record.name?.toLowerCase().includes("arcsphere")?1:.75;
+      const reduction=record.type.includes("Chestpiece")
+        ||/\b(?:arcsphere|bracelet)\b/i.test(record.name||"")?1:.75;
       for(const [key,value]of Object.entries(tool["armor-stats"])){
         const factor=NEWER_ARMOR_EP_VALUES[key]*3||1;
-        stats[key]=(stats[key]||0)+Math.floor(value*levelFactor*factor)*reduction;
+        const added=isArcaniumRecord
+          ?Math.round(value*levelFactor*factor*reduction*10)/10
+          :Math.floor(value*levelFactor*factor)*reduction;
+        stats[key]=Math.round(((stats[key]||0)+added)*10)/10;
       }
     }
     return {level,stats};
@@ -205,12 +234,25 @@ function createArcaniumArcsphereItems(){
   return MAGICS.map(magic=>{
     const magicRecord=NEWER_ARMOR_RECORDS.find(entry=>entry.type==="Magic"&&entry.name===magic);
     if(!magicRecord)throw new Error(`Missing Arcanium stat data for ${magic}.`);
+    const wikiRanges=ARCSPHERE_WIKI_STAT_RANGES[magic];
+    const statRows=wikiRanges?Array.from({length:8},(_,index)=>{
+      const level=100+index*10;
+      const progress=(level-100)/70;
+      const stats=Object.fromEntries(Object.entries(wikiRanges).map(([key,range])=>{
+        if(key==="power"&&range[0]===6.3&&range[1]===10.8){
+          const values=[6.3,7,7.6,8.2,8.9,9.5,10.2,10.8];
+          return [key,values[index]];
+        }
+        return [key,Math.round((range[0]+(range[1]-range[0])*progress)*10)/10];
+      }));
+      return {level,stats};
+    }):getNewerArmorStatRows(record,null,magicRecord);
     return {
       id:`arcanium-arcsphere-${magic.toLowerCase()}`,
       name:`${magic} Arcanium Arcsphere`,magicKey:magic,magicPiece:" Arcanium Arcsphere",
       category:"Accessory",subType:"Accessory",minLevel:record.min_level??100,maxLevel:170,
       jewelSlots:record.jewels??0,essenceLocked:false,
-      statRows:getNewerArmorStatRows(record,null,magicRecord)
+      statRows
     };
   });
 }
@@ -222,7 +264,7 @@ const ADDED_NEWER_ARMOR_ITEMS=NEWER_ARMOR_RECORDS.filter(record=>NEWER_ARMOR_CAT
   .map(record=>updateItemFromWiki(createNewerArmorItem(record)));
 const ADDED_ARCANIUM_ARCSPHERE_ITEMS=createArcaniumArcsphereItems()
   .filter(item=>!UPDATED_ITEM_KEYS.has(`${item.name}::${item.category}`))
-  .map(item=>updateItemFromWiki(updateItemFromNewerArmor(item)));
+  .map(item=>updateItemFromWiki(item));
 const ADDED_DRAGON_ARMOR_ITEMS=NEWER_ARMOR_RECORDS.filter(record=>/^(?:Corrupted Dragon|Dragon) (?:Chestpiece|Leggings|Accessory|Helmet|Amulet)$/.test(record.type))
   .map(record=>updateItemFromWiki(createNewerArmorItem(record,true)));
 const ITEMS = [...UPDATED_CATALOG_ITEMS,...ADDED_NEWER_ARMOR_ITEMS,...ADDED_ARCANIUM_ARCSPHERE_ITEMS,...ADDED_DRAGON_ARMOR_ITEMS].map(item=>{
@@ -398,7 +440,7 @@ function getCombinedGemStats(socket){
       continue;
     }
     if(powerSubstatFusion&&["size","dexterity","range"].includes(key)){
-      combined[key]=Math.round((baseValue+fusionValue)*0.75*10)/10;
+      combined[key]=Math.round((baseValue+fusionValue)*0.73*10)/10;
       continue;
     }
     const multiplier = GEM_FUSION_MULTIPLIERS[key] ?? GEM_FUSION_RATIO;
@@ -414,7 +456,10 @@ function getCombinedGemStats(socket){
 function getEnchantBonusStats(gear,enchant){
   const scale=(safeNumber(gear.level)||1)/10*(safeNumber(gear.enchantFactor)||1);
   const stats={};
-  for(const [key,value]of Object.entries(ENCHANT_STATS[enchant]||{}))stats[key]=value*scale;
+  for(const [key,value]of Object.entries(ENCHANT_STATS[enchant]||{})){
+    const bonus=value*scale;
+    stats[key]=["power","defense"].includes(key)?bonus:Math.floor(bonus);
+  }
   for(const [key,value]of Object.entries(ENCHANT_FLAT_STATS[enchant]||{}))stats[key]=(stats[key]||0)+value;
   return stats;
 }

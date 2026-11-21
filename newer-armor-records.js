@@ -1107,7 +1107,7 @@ window.BUILDER_NEW_ARMOR_DATA = [
     "name": "Arcanium Bracelet",
     "rarity": "Uncommon",
     "stats": {
-      "power": 0.28125,
+      "power": 0.252,
       "haste": 0.15
     },
     "type": "Magic Accessory",
@@ -1121,7 +1121,7 @@ window.BUILDER_NEW_ARMOR_DATA = [
     "name": "Arcanium Arcsphere",
     "rarity": "Uncommon",
     "stats": {
-      "power": 0.2025
+      "power": 0.18
     },
     "type": "Magic Accessory",
     "image": "../assets/Arcanium_Arcsphere.webp"
