@@ -42,6 +42,7 @@ The planner is an independent fan project and is not affiliated with Arcane Odys
 
 - **Gear and modifiers:** [Armor](https://roblox-arcane-odyssey.fandom.com/wiki/Armor), [Accessories](https://roblox-arcane-odyssey.fandom.com/wiki/Accessories), [Jewelcrafting](https://roblox-arcane-odyssey.fandom.com/wiki/Jewelcrafting), [Modifiers](https://roblox-arcane-odyssey.fandom.com/wiki/Modifiers), and [Gear Stats](https://roblox-arcane-odyssey.fandom.com/wiki/Gear_Stats).
 - **Weapons and stat builds:** [Stat Builds](https://roblox-arcane-odyssey.fandom.com/wiki/Stat_Builds), [Weapons](https://roblox-arcane-odyssey.fandom.com/wiki/Weapons), and [Weapon Skills](https://roblox-arcane-odyssey.fandom.com/wiki/Weapons/Skills).
+- **Ships:** [Ships](https://roblox-arcane-odyssey.fandom.com/wiki/Ships), [Ship Parts](https://roblox-arcane-odyssey.fandom.com/wiki/Ship_Parts), and [Ship Stats](https://roblox-arcane-odyssey.fandom.com/wiki/Ship_Stats).
 - **Spells and techniques:** [Spells](https://roblox-arcane-odyssey.fandom.com/wiki/Spells) and [Techniques](https://roblox-arcane-odyssey.fandom.com/wiki/Techniques).
 - **Dragon gear data:** the wiki's [equipment data module](https://roblox-arcane-odyssey.fandom.com/wiki/Module:Equipment/data).
 

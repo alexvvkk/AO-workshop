@@ -7,8 +7,8 @@
   <title>Arcane Odyssey · Gear Workshop</title>
   <link rel="icon" type="image/png" href="assets/everthel-4.2.png">
   <link rel="apple-touch-icon" href="assets/everthel-4.2.png">
-  <link rel="stylesheet" href="styles.css?v=stat-total-spacing-icons-20261116">
-  <script src="theme.js?v=color-themes-readable-20261112" defer></script>
+  <link rel="stylesheet" href="styles.css?v=gear-player-level-compact-20261121">
+  <script src="theme.js?v=color-themes-light-20261121" defer></script>
 </head>
 <body>
   <div class="app-shell">
@@ -19,6 +19,7 @@
       </a>
       <div class="top-actions">
         <button class="button button-quiet" id="toggle-screenshot" type="button" aria-pressed="false">Screenshot view</button>
+          <a class="button button-quiet" href="ship-builder.html">Ship Builder</a>
         <label class="top-build-name" for="build-name"><span>BUILD NAME</span><input id="build-name" type="text" maxlength="40" placeholder="Untitled build"></label>
         <span class="save-state" id="save-state">Changes save locally</span>
         <div class="share-build-actions">
@@ -34,7 +35,9 @@
         <option value="crimson">Everthel Red</option>
         <option value="blue">Blue</option>
         <option value="dark">Dark</option>
+        <option value="light">Light</option>
       </select>
+      <button class="button button-quiet advanced-toggle" id="toggle-advanced" type="button" aria-pressed="false" aria-label="Toggle advanced stats and formulas" title="Show or hide detailed stats and formulas">Advanced</button>
     </div>
     <section class="saved-build-toolbar" aria-label="Saved gear sets">
       <span class="saved-build-title">SAVED GEAR SETS</span>
@@ -74,7 +77,7 @@
             <div class="summary-top"><div><span class="eyebrow">BUILD OVERVIEW</span><h2>Stat totals</h2></div></div>
             <div class="level-row">
               <label for="player-level">PLAYER LEVEL</label>
-              <div class="level-input"><span>LV</span><input id="player-level" type="number" min="1" max="175" value="175" inputmode="numeric"></div>
+              <div class="level-input"><span>LVL</span><input id="player-level" type="number" min="1" max="175" value="175" inputmode="numeric"></div>
             </div>
             <div class="stat-list" id="stat-list"></div>
             <div class="efficiency-total"><span>EFFICIENCY POINTS</span><strong id="summary-efficiency-points">0</strong><small>Power × 3 · Defense ÷ 3 · Other stats × 1</small></div>
@@ -128,6 +131,6 @@
   <script src="newer-armor-records.js?v=arcanium-base-stats-20261121"></script>
   <script src="wiki-armor-records.js"></script>
   <script src="dragon-armor-records.js"></script>
-  <script src="app.js?v=arcanium-exact-catalog-20261121"></script>
+  <script src="app.js?v=gear-player-scaled-level-badge-layout-20261121"></script>
 </body>
 </html>

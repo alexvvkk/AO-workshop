@@ -270,12 +270,16 @@ const ADDED_ARCANIUM_ARCSPHERE_ITEMS=createArcaniumArcsphereItems()
   .map(item=>updateItemFromWiki(item));
 const ADDED_DRAGON_ARMOR_ITEMS=NEWER_ARMOR_RECORDS.filter(record=>/^(?:Corrupted Dragon|Dragon) (?:Chestpiece|Leggings|Accessory|Helmet|Amulet)$/.test(record.type))
   .map(record=>updateItemFromWiki(createNewerArmorItem(record,true)));
-const ITEMS = [...UPDATED_CATALOG_ITEMS,...ADDED_NEWER_ARMOR_ITEMS,...ADDED_ARCANIUM_ARCSPHERE_ITEMS,...ADDED_DRAGON_ARMOR_ITEMS].map(item=>{
+const ALL_ITEMS = [...UPDATED_CATALOG_ITEMS,...ADDED_NEWER_ARMOR_ITEMS,...ADDED_ARCANIUM_ARCSPHERE_ITEMS,...ADDED_DRAGON_ARMOR_ITEMS].map(item=>{
   const latest=item.statRows.find(row=>row.level===item.maxLevel)||item.statRows[item.statRows.length-1];
   const magicPiece=(item.magicPiece||(item.magicKey?item.name.slice(item.magicKey.length):"")).trim();
   const category=ITEM_CATEGORY_BY_SUBTYPE[item.subType]||item.category;
   return {...item,magicPiece,category,type:CATEGORY_LABELS[category],level:latest.level,stats:{...latest.stats}};
+}).filter(item=>{
+  if(/(?:arcanium|mancer)/i.test(item.name))return true;
+  return safeNumber(item.minLevel)>=100;
 });
+const ITEMS=ALL_ITEMS;
 function getDragonColorRecords(item){
   return item?.dragonGear?NEWER_ARMOR_RECORDS.filter(record=>record.type===item.dragonColorType):[];
 }
@@ -307,6 +311,13 @@ function normalizeItemLevel(item,level){
   const minLevel=Math.min(maxLevel,item.minLevel??1);
   const requested=Math.max(minLevel,Math.min(maxLevel,safeNumber(level)||maxLevel));
   return item.statRows.reduce((closest,row)=>Math.abs(row.level-requested)<Math.abs(closest.level-requested)?row:closest,item.statRows[0]).level;
+}
+function getPlayerItemLevel(item,playerLevel){
+  const level=Math.max(1,Math.floor(Math.min(MAX_GAME_LEVEL,safeNumber(playerLevel)||MAX_GAME_LEVEL)/10)*10);
+  return item?normalizeItemLevel(item,level):level;
+}
+function getItemStatsForPlayer(item,playerLevel){
+  return getItemStatsAtLevel(item,getPlayerItemLevel(item,playerLevel),getDefaultDragonColor(item));
 }
 const SLOTS = [
   {id:"accessory1",label:"ACCESSORY 01",name:"Accessory 1",categories:["Accessory","Helmet","Amulet"]},
@@ -370,20 +381,16 @@ function sanitizeStatBuild(buildState){
     }else continue;
     if(!replacement){buildState.gear[slot.id]=null;continue;}
     gear.name=replacement.name;
-    gear.level=normalizeItemLevel(replacement,gear.level);
+    gear.level=getPlayerItemLevel(replacement,buildState.level);
     gear.stats=getItemStatsAtLevel(replacement,gear.level);
   }
 }
-function sanitizeGearModifiers(gearState){
+function sanitizeGearModifiers(gearState,playerLevel){
   for(const slot of SLOTS){
     const gear=gearState[slot.id];
     if(!gear)continue;
     const item=ITEMS.find(entry=>entry.name===gear.name);
-    if(item){
-      gear.level=normalizeItemLevel(item,gear.level);
-    }else{
-      gear.level=Math.max(1,Math.min(MAX_GAME_LEVEL,safeNumber(gear.level)||170));
-    }
+    gear.level=getPlayerItemLevel(item,playerLevel);
     gear.enchant=ENCHANT_UPGRADES[gear.enchant]||gear.enchant;
     if(!canUseModifier(gear,item))gear.modifier="";
     const colorNames=getDragonColorRecords(item).map(color=>getDragonColorName(item,color));
@@ -407,6 +414,15 @@ function sanitizeGearModifiers(gearState){
       delete socket.quality;
       delete socket.fusionQuality;
     }
+  }
+}
+function syncGearLevelsToPlayer(gearState,playerLevel){
+  for(const slot of SLOTS){
+    const gear=gearState[slot.id];
+    if(!gear)continue;
+    const item=ITEMS.find(entry=>entry.name===gear.name);
+    gear.level=getPlayerItemLevel(item,playerLevel);
+    if(item)gear.stats=getItemStatsAtLevel(item,gear.level,gear.dragonColor);
   }
 }
 function getGemStats(socket,key){
@@ -585,7 +601,7 @@ function loadStoredBuild(){
         const earlierAccessories=ACCESSORY_SLOT_IDS.slice(0,index).map(id=>ITEMS.find(entry=>entry.name===result.gear[id]?.name)).filter(Boolean);
         if(item&&earlierAccessories.some(other=>accessoryConflict(item,other)))result.gear[slotId]=null;
       }
-      sanitizeGearModifiers(result.gear);
+      sanitizeGearModifiers(result.gear,result.level);
       return result;
     }
   }catch(error){console.warn("Could not read the saved build.",error);}
@@ -787,8 +803,9 @@ function getFilteredItems(slot,query=""){
   return getAvailableItemsForSlot(slot).filter(item=>{
     const arcsphereAlias=item.magicPiece?.trim()==="Arcanium Arcsphere"
       ?item.name.replace("Arcsphere","Archsphere").toLowerCase():"";
+    const stats=getItemStatsForPlayer(item,build.level);
     return !accessoryConflictForSlot(slot.id,item)
-      &&[...statFilters].every(key=>safeNumber(item.stats[key])!==0)
+      &&[...statFilters].every(key=>safeNumber(stats[key])!==0)
       &&(!search||item.name.toLowerCase().includes(search)||arcsphereAlias.includes(search));
   }).sort((a,b)=>a.name.localeCompare(b.name,undefined,{sensitivity:"base"}));
 }
@@ -802,7 +819,7 @@ function renderItemResults(slotId){
   const controls=[];
   if(!itemSearches[slotId]&&!statFilters.size&&build.gear[slotId])controls.push(`<button class="item-result item-result-clear" type="button" role="option" aria-selected="false" data-select-item="${slotId}" data-item-name="">× <span>Clear ${slot.name}</span></button>`);
   for(const [index,item] of filtered.entries()){
-    const stats=Object.entries(item.stats).filter(([key])=>STAT_KEYS.includes(key)).map(([key,value])=>renderStatValue(key,value)).join(" ");
+    const stats=Object.entries(getItemStatsForPlayer(item,build.level)).filter(([key])=>STAT_KEYS.includes(key)).map(([key,value])=>renderStatValue(key,value)).join(" ");
     const selected=build.gear[slotId]?.name===item.name;
     controls.push(`<button id="${slotId}-result-${index}" class="item-result${selected?" is-equipped":""}" type="button" role="option" aria-selected="${selected}" data-select-item="${slotId}" data-item-name="${esc(item.name)}"><span class="item-result-main"><span class="item-result-name">${esc(item.name)}${selected?'<span class="equipped-tag">EQUIPPED</span>':""}</span><span class="item-result-stats">${stats||"No base stats listed"}</span></span><span class="item-result-type">${esc(item.type)}</span></button>`);
   }
@@ -820,10 +837,12 @@ function renderCard(slot){
   const gear=build.gear[slot.id];
   const selectedItem=ITEMS.find(item=>item.name===gear?.name);
   const slotItems=getAvailableItemsForSlot(slot);
-  const searchPlaceholder=gear?.name||"Search "+slot.name.toLowerCase()+"…";
-  const itemPicker=`<div class="field item-picker"><label for="${slot.id}-search">ITEM <span class="item-count" data-item-count="${slot.id}">${slotItems.length} ITEMS</span></label><div class="item-search-wrap"><input id="${slot.id}-search" class="item-search" type="search" data-item-search="${slot.id}" value="${esc(itemSearches[slot.id])}" placeholder="${esc(searchPlaceholder)}" autocomplete="off" role="combobox" aria-autocomplete="list" aria-controls="${slot.id}-results" aria-expanded="${itemDropdownOpen[slot.id]}" aria-label="Search ${esc(slot.name)} items"><span class="search-icon" aria-hidden="true">⌕</span><div class="item-results" id="${slot.id}-results" data-item-results="${slot.id}" role="listbox" hidden></div></div></div>`;
+  const searchPlaceholder=gear?.name||"Search items…";
+  const itemPicker=`<div class="field item-picker${gear?.name?" has-selection":""}"><label for="${slot.id}-search"><span>ITEM</span>${gear?`<span class="item-picker-level">Lvl: ${Math.max(1,safeNumber(gear.level))}</span>`:""}<span class="item-count" data-item-count="${slot.id}">${slotItems.length} ITEMS</span></label><div class="item-search-wrap"><input id="${slot.id}-search" class="item-search" type="search" data-item-search="${slot.id}" value="${esc(itemSearches[slot.id])}" placeholder="${esc(searchPlaceholder)}" autocomplete="off" role="combobox" aria-autocomplete="list" aria-controls="${slot.id}-results" aria-expanded="${itemDropdownOpen[slot.id]}" aria-label="Search ${esc(slot.name)} items"><span class="search-icon" aria-hidden="true">⌕</span><div class="item-results" id="${slot.id}-results" data-item-results="${slot.id}" role="listbox" hidden></div></div></div>`;
   const clearButton=`<button class="clear-slot-button" type="button" data-clear-slot="${slot.id}"${gear?"":" disabled"} aria-label="Clear ${esc(slot.name)}">Clear</button>`;
-  if(!gear) return `<article class="gear-card"><div class="gear-card-header"><div><span class="slot-label">${slot.label}</span><h3>Empty slot</h3></div>${clearButton}</div><div class="gear-fields">${itemPicker}</div><div class="gear-snapshot"><span>No item selected</span></div></article>`;
+  const itemNameHeader=gear?`<h3 class="gear-item-name">${esc(gear.name||"Unnamed gear")}</h3><span class="item-type">${esc(selectedItem?.type||"Custom item")}</span>`:`<h3 class="gear-item-name">Empty slot</h3>`;
+  const cardHeader=`<div class="gear-card-header"><div class="gear-card-heading"><span class="slot-label">${slot.label}</span>${itemNameHeader}${itemPicker}</div>${clearButton}</div>`;
+  if(!gear) return `<article class="gear-card">${cardHeader}<div class="gear-snapshot"><span>No item selected</span></div></article>`;
   const jewelSlots=(selectedItem?.jewelSlots||0)+(gear.modifier==="gilded"?1:0);
   const sockets=Array.from({length:jewelSlots},(_,i)=>renderSocket(slot.id,i,gear.sockets?.[i])).join("");
   const socketSection=sockets?`<div class="socket-block"><div class="socket-block-head"><span class="socket-title">JEWEL SOCKETS</span><span class="socket-subtitle">${jewelSlots} SOCKETS</span></div>${sockets}</div>`:"";
@@ -840,11 +859,10 @@ function renderCard(slot){
   const itemEfficiency=formatEfficiencyPoints(getEfficiencyPoints(totalStats));
   const screenshotDetails=getScreenshotDetails(gear);
   const screenshotSummary=`<div class="gear-snapshot" data-screenshot-summary="${slot.id}"><div class="gear-snapshot-stats">${formatGearStats(totalStats,atlanteanKey)}</div><div class="gear-snapshot-details"${screenshotDetails?"":" hidden"}>${esc(screenshotDetails)}</div><div class="gear-snapshot-efficiency">${itemEfficiency} EP</div></div>`;
-  const maxLevel=Math.min(MAX_GAME_LEVEL,selectedItem?.maxLevel??MAX_GAME_LEVEL);
-  const minLevel=Math.min(maxLevel,selectedItem?.minLevel??1);
     const enchantPreview=getPickerPreview(slot.id,"enchant","",gear.enchant||"");
     const enchantControl=renderPickerInput({slotId:slot.id,kind:"enchant",label:"ENCHANT",placeholder:"Search enchants…",selectedValue:gear.enchant||"",previewStats:enchantPreview.stats,previewTitle:"ENCHANT",previewEmptyText:"Choose an enchant."});
-    return `<article class="gear-card"><div class="gear-card-header"><div><span class="slot-label">${slot.label}</span><h3>${esc(gear.name||"Unnamed gear")}</h3><span class="item-type">${esc(selectedItem?.type||"Custom item")} · Lv ${safeNumber(gear.level)||1}</span></div>${clearButton}</div><div class="gear-fields">${itemPicker}${dragonColorControl}<div class="field item-level"><label>ITEM LEVEL</label><input data-slot="${slot.id}" data-prop="level" type="number" min="${minLevel}" max="${maxLevel}" step="10" value="${safeNumber(gear.level)||1}" aria-label="${slot.name} level"></div><div class="base-stat-readout">${baseStats}</div><div class="item-total-readout" data-item-total="${slot.id}"><span class="item-total-label">TOTAL ITEM STATS</span><span class="item-total-stats">${esc(totalStatText)}</span><span class="item-efficiency">EFFICIENCY POINTS <b>${itemEfficiency}</b></span></div><div class="enhancement">${enchantControl}${modifierControl}</div>${socketSection}</div>${screenshotSummary}</article>`;
+      const enhancementRow=`<div class="enhancement enhancement-inline">${enchantControl}${modifierControl}</div>`;
+      return `<article class="gear-card">${cardHeader}<div class="gear-fields"><div class="base-stat-readout">${baseStats}</div><div class="item-total-readout" data-item-total="${slot.id}"><span class="item-total-label">TOTAL ITEM STATS</span><span class="item-total-stats">${esc(totalStatText)}</span><span class="item-efficiency">EFFICIENCY POINTS <b>${itemEfficiency}</b></span></div>${enhancementRow}${dragonColorControl}${socketSection}</div>${screenshotSummary}</article>`;
 }
 function renderSocket(slotId,index,socket={}){
   const combinedStats=socket.gem?getCombinedGemStats(socket):{};
@@ -904,7 +922,7 @@ function selectItem(slotId,itemName){
     if(item.fightingStyle&&!build.fightingStyles.includes(item.fightingStyle)){showToast("Select this item's fighting style before equipping it.");return;}
     const conflict=accessoryConflictForSlot(slotId,item);
     if(conflict){showToast(conflict);return;}
-    const nextLevel=normalizeItemLevel(item,item.maxLevel);
+    const nextLevel=getPlayerItemLevel(item,build.level);
     const dragonColor=getDefaultDragonColor(item);
     const nextGear={...blankGear(),name:item.name,level:nextLevel,stats:getItemStatsAtLevel(item,nextLevel,dragonColor),enchant:previous?.enchant||"",modifier:previous?.modifier||"",dragonColor};
     if(!canUseModifier(nextGear,item))nextGear.modifier="";
@@ -1137,16 +1155,6 @@ document.getElementById("clear-all-gear").addEventListener("click",()=>{
   render();persist();
   showToast("All equipment cleared.");
 });
-document.getElementById("gear-grid").addEventListener("change",event=>{
-  const el=event.target;
-  if(el.dataset.prop==="level"&&build.gear[el.dataset.slot]){
-    const gear=build.gear[el.dataset.slot];
-    const item=ITEMS.find(entry=>entry.name===gear.name);
-    gear.level=item?normalizeItemLevel(item,el.value):Math.max(1,Math.min(MAX_GAME_LEVEL,safeNumber(el.value)||1));
-    if(item)gear.stats=getItemStatsAtLevel(item,gear.level,gear.dragonColor);
-    render();persist();
-  }
-});
 document.getElementById("build-name").addEventListener("input",event=>{build.name=event.target.value;persist();});
 document.getElementById("save-named-build").addEventListener("click",saveNamedGearBuild);
 document.getElementById("saved-build-select").addEventListener("change",syncSavedGearBuildButtons);
@@ -1187,7 +1195,11 @@ document.getElementById("fighting-style-selectors").addEventListener("change",ev
   sanitizeStatBuild(build);
   renderFightingStyleSelectors();persist();
 });
-document.getElementById("player-level").addEventListener("input",event=>{build.level=clampGameLevel(event.target.value);event.target.value=build.level;updateSummary();persist();});
+document.getElementById("player-level").addEventListener("input",event=>{
+  build.level=clampGameLevel(event.target.value);
+  syncGearLevelsToPlayer(build.gear,build.level);
+  render();persist();
+});
 document.getElementById("dragonblood-ritual").addEventListener("change",event=>{build.dragonbloodTier=safeNumber(event.target.value);updateSummary();persist();});
 function encodeBase64Url(bytes){
   let binary="";
@@ -1228,7 +1240,7 @@ function importBuildData(parsed,{toast="Build imported.",closeImport=true}={}){
   const accessoryError=validateAccessoryLoadout(merged.gear);
   if(accessoryError)throw new Error(`This build cannot be imported: ${accessoryError}`);
   sanitizeStatBuild(merged);
-  sanitizeGearModifiers(merged.gear);
+  sanitizeGearModifiers(merged.gear,merged.level);
   build=merged;
   render();persist();
   if(closeImport){
@@ -1255,6 +1267,10 @@ document.getElementById("copy-summary").addEventListener("click",async()=>{
   const statBuild=STAT_BUILDS.find(([id])=>id===build.statBuild);
   const lines=[`${build.name||"Arcane Odyssey build"} · Level ${build.level||175}`,...(statBuild?[`Stat build: ${statBuild[1]}`,...(build.magics||[]).filter(Boolean).map((magic,index)=>`Magic ${index+1}: ${magic}`),...(build.fightingStyles||[]).filter(Boolean).map((style,index)=>`Fighting style ${index+1}: ${style}`)]:[]),`Total health: ${document.getElementById("summary-total-health").textContent}`,`Efficiency points: ${document.getElementById("summary-efficiency-points").textContent}`,`Dragonblood ritual: ${DRAGONBLOOD_RITUALS.find(ritual=>ritual.tier===Number(build.dragonbloodTier))?.label||"None"}`,...Array.from(document.querySelectorAll(".total-stat"),el=>`${el.querySelector(".stat-name [title]")?.title||el.querySelector(".stat-name").textContent}: ${el.querySelector("b").textContent}`)];
   try{await navigator.clipboard.writeText(lines.join("\n"));showToast("Stat summary copied.");}catch(error){console.error("Could not copy the summary.",error);showToast("Clipboard access is unavailable.");}
+});
+document.getElementById("toggle-advanced").addEventListener("click",event=>{
+  const enabled=document.body.classList.toggle("show-advanced");
+  event.currentTarget.setAttribute("aria-pressed",String(enabled));
 });
 document.getElementById("toggle-screenshot").addEventListener("click",event=>{
   const enabled=document.body.classList.toggle("screenshot-mode");

@@ -1,5 +1,5 @@
 const THEME_STORAGE_KEY="ao-gear-workshop-theme-v1";
-const AVAILABLE_THEMES=["crimson","blue","dark"];
+const AVAILABLE_THEMES=["crimson","blue","dark","light"];
 
 function setTheme(theme){
   const selected=AVAILABLE_THEMES.includes(theme)?theme:"crimson";
