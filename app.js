@@ -101,7 +101,6 @@ const GEMS = [
   {id:"power-size",name:"Malachite",fusionStats:{power:4},stats:[{power:1,size:1},{power:1.3,size:2.1},{power:1.9,size:3.2},{power:2.6,size:4.3},{power:3.2,size:5.4},{power:3.9,size:6.5}]},
   {id:"power-dexterity",name:"Candelaria",fusionStats:{power:4},stats:[{power:1,dexterity:1},{power:1.3,dexterity:2.1},{power:1.9,dexterity:3.2},{power:2.6,dexterity:4.3},{power:3.2,dexterity:5.4},{power:3.9,dexterity:6.5}]},
   {id:"power-range",name:"Morenci",fusionStats:{power:4},stats:[{power:1,range:1},{power:1.3,range:2.1},{power:1.9,range:3.2},{power:2.6,range:4.3},{power:3.2,range:5.4},{power:3.9,range:6.5}]},
-  {id:"double-effect",name:"Musgravite",stats:[{},{},{},{},{},{}]},
   {id:"defense-drawback",name:"Painite",stats:[{drawback:1,defense:31.3},{drawback:1,defense:62.7},{drawback:1,defense:94},{drawback:1,defense:125.4},{drawback:1,defense:156.7},{drawback:1,defense:188.1}]},
   {id:"range-haste",name:"Kyanite",stats:[{range:1.6,haste:1.6},{range:3.2,haste:3.2},{range:4.9,haste:4.9},{range:6.5,haste:6.5},{range:8.2,haste:8.2},{range:9.8,haste:9.8}]},
   {id:"range-size",name:"Variscite",stats:[{range:1.6,size:1.6},{range:3.2,size:3.2},{range:4.9,size:4.9},{range:6.5,size:6.5},{range:8.2,size:8.2},{range:9.8,size:9.8}]},
@@ -442,10 +441,6 @@ function roundGemStats(stats){
 function getCombinedGemStats(socket){
   if(!socket?.gem)return {};
   const primaryBase=getGemStats(socket,"gem");
-  if(socket.gem==="double-effect"||socket.fusionGem==="double-effect"){
-    const activeGemId=socket.gem==="double-effect"?socket.fusionGem:socket.gem;
-    return roundGemStats(getGemStats({gem:activeGemId},"gem"));
-  }
   if(!socket.fusionGem)return roundGemStats(primaryBase);
   const fusionBase=getGemStats(socket,"fusionGem");
   if(!Object.keys(fusionBase).length)return roundGemStats(primaryBase);
