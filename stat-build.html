@@ -2,104 +2,11 @@
 <html lang="en">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="theme-color" content="#09131d">
+  <meta http-equiv="refresh" content="0; url=stat-builds/">
   <link rel="canonical" href="stat-builds/">
-  <link rel="icon" type="image/png" href="assets/everthel-4.2.png">
   <title>Stat Build Planner · Arcane Odyssey</title>
-  <link rel="stylesheet" href="styles.css?v=theme-light-planner-20261121">
-  <script src="theme.js?v=theme-no-light-20261123" defer></script>
 </head>
 <body>
-  <div class="planner-shell">
-    <header class="planner-topbar">
-      <a class="brand" href="index.html" aria-label="Gear Workshop home">
-        <img class="brand-mark-image" src="assets/everthel-4.2.png" alt="">
-        <span>ARCANE <b>ODYSSEY</b><small>STAT BUILD PLANNER</small><small class="game-version">V1.21.25.4</small></span>
-      </a>
-      <div class="planner-nav"><a class="planner-back" href="index.html">← Gear Workshop</a><a class="planner-back" href="ship-builder.html">Ship Builder</a></div>
-    </header>
-    <div class="color-theme-bar">
-      <label for="theme-select">COLOR THEME</label>
-      <select id="theme-select" aria-label="Color theme">
-        <option value="crimson">Everthel Red</option>
-        <option value="blue">Blue</option>
-        <option value="dark">Dark</option>
-      </select>
-    </div>
-    <main class="planner-main">
-      <div class="planner-heading">
-        <div>
-          <span class="eyebrow">CLASS & ABILITY FORECAST</span>
-          <h1>Stat build planner</h1>
-          <p>Allocate points across Magic, Weapons, Spirit, and Strength. Class estimates use your current invested-point percentages; once estimated, only that class's ability categories are shown.</p>
-        </div>
-        <label class="planner-level" for="planner-level">PLAYER LEVEL
-          <input id="planner-level" type="number" min="1" max="175" value="175" inputmode="numeric">
-        </label>
-      </div>
-      <div class="planner-layout">
-        <section class="planner-panel" aria-labelledby="allocation-title">
-          <div class="planner-panel-heading"><h2 id="allocation-title">Point allocation</h2><small>2 points per level</small></div>
-          <div class="planner-points"><span>POINTS SPENT / REMAINING</span><strong><span id="planner-spent">0</span> / <span id="planner-remaining">350</span></strong></div>
-          <div class="planner-stat-list" id="planner-stat-list"></div>
-          <div class="planner-class-result" aria-live="polite">
-            <span>CLASS FROM CURRENT ALLOCATION</span><strong id="planner-class-name">Savant</strong>
-            <p id="planner-class-note"></p>
-          </div>
-        </section>
-        <section class="planner-panel planner-weapon-setup" aria-labelledby="weapon-skills-title" data-move-stat="weapons">
-          <div class="planner-move-header"><h2 id="weapon-skills-title">Weapon skills</h2></div>
-          <div class="planner-weapon-config">
-            <div class="planner-panel-heading"><h3>Equipped weapons</h3><small>3 slots</small></div>
-            <div class="planner-weapon-inputs" id="planner-weapon-inputs"></div>
-          </div>
-        </section>
-      </div>
-      <section class="planner-move-group planner-weapon-results-group" aria-label="Weapon skill results" data-move-stat="weapons">
-        <div class="planner-weapon-tabs" id="planner-weapon-tabs" role="tablist" aria-label="Weapon move views">
-          <button class="planner-weapon-tab" id="planner-weapon-tab-usable" type="button" role="tab" aria-selected="true" aria-controls="planner-weapon-panel-usable" tabindex="0">Usable moves</button>
-          <button class="planner-weapon-tab" id="planner-weapon-tab-all" type="button" role="tab" aria-selected="false" aria-controls="planner-weapon-panel-all" tabindex="-1">All compatible moves</button>
-        </div>
-        <div class="planner-weapon-tab-panel" id="planner-weapon-panel-usable" role="tabpanel" aria-labelledby="planner-weapon-tab-usable">
-          <div class="planner-weapon-available" id="planner-weapon-available"></div>
-        </div>
-        <div class="planner-weapon-tab-panel" id="planner-weapon-panel-all" role="tabpanel" aria-labelledby="planner-weapon-tab-all" hidden>
-          <div class="planner-weapon-results" id="planner-weapon-results"></div>
-        </div>
-      </section>
-      <section class="planner-moves" aria-label="Other ability unlocks">
-        <section class="planner-move-group" data-move-stat="magic">
-          <div class="planner-move-header"><h2>Magic spells & scrolls</h2></div>
-          <p class="planner-move-note">Locked moves show whether their stat points or class are missing. The ULTIMATE ART badge appears 200 Magic points above a spell's normal unlock requirement. Rare and Lost spells require scrolls; a 2ND MAGIC badge marks moves meeting the secondary-slot requirement.</p>
-          <div class="planner-move-list" id="planner-spells"></div>
-        </section>
-        <section class="planner-move-group" data-move-stat="strength">
-          <div class="planner-move-header"><h2>Strength techniques & scrolls</h2></div>
-          <p class="planner-move-note">Locked moves show whether their stat points or class are missing. The ULTIMATE ART badge appears 200 Strength points above a technique's normal unlock requirement. Rare and Lost Techniques require scrolls; a 2ND STYLE badge marks moves meeting the secondary-slot requirement.</p>
-          <div class="planner-move-list" id="planner-techniques"></div>
-        </section>
-        <section class="planner-move-group planner-spirit-group" aria-label="Spirit weapons and rites" data-move-stat="spirit">
-          <div class="planner-move-header"><h2>Spirit weapons (Relics)</h2></div>
-          <div class="planner-spirit-config">
-            <div class="planner-panel-heading"><h3>Equipped relics</h3><small>3 slots</small></div>
-            <div class="planner-spirit-inputs" id="planner-spirit-inputs"></div>
-          </div>
-          <div class="planner-weapon-tabs" id="planner-spirit-tabs" role="tablist" aria-label="Spirit rite views">
-            <button class="planner-weapon-tab" id="planner-spirit-tab-usable" type="button" role="tab" aria-selected="true" aria-controls="planner-spirit-panel-usable" tabindex="0">Usable rites</button>
-            <button class="planner-weapon-tab" id="planner-spirit-tab-all" type="button" role="tab" aria-selected="false" aria-controls="planner-spirit-panel-all" tabindex="-1">All compatible rites</button>
-          </div>
-          <div class="planner-weapon-tab-panel" id="planner-spirit-panel-usable" role="tabpanel" aria-labelledby="planner-spirit-tab-usable">
-            <div class="planner-spirit-results planner-spirit-available" id="planner-spirit-available"></div>
-          </div>
-          <div class="planner-weapon-tab-panel" id="planner-spirit-panel-all" role="tabpanel" aria-labelledby="planner-spirit-tab-all" hidden>
-            <div class="planner-spirit-results planner-spirit-all" id="planner-spirit-results"></div>
-          </div>
-        </section>
-      </section>
-      <p class="planner-footer">Class thresholds and ability requirements are transcribed from the <a href="https://roblox-arcane-odyssey.fandom.com/wiki/Stat_Builds" target="_blank" rel="noreferrer">Arcane Odyssey Wiki</a>, including its <a href="https://roblox-arcane-odyssey.fandom.com/wiki/Relics/Rites" target="_blank" rel="noreferrer">Relics and Rites</a> pages. Weapon skill results cover slots 1-2 and use their listed requirements; relic rite requirements use relic level × 2 plus rite cost. The Ultimate Art slot adds 100 Spirit for non-movement rites; movement rites use the normal requirement but gain no Ultimate Art effect. Owning the required scroll, compatible weapon/relic, and awakening may also be necessary.</p>
-    </main>
-  </div>
-  <script src="stat-build.js?v=alphabetical-pickers-20261116"></script>
+  <p>The Stat Build Planner has moved to <a href="stat-builds/">its clean URL</a>.</p>
 </body>
 </html>

@@ -10,7 +10,7 @@ From this folder, start a local web server:
 py -m http.server 8000
 ```
 
-Open <http://localhost:8000> in your browser. You can also open `index.html` directly, but serving the folder over HTTP is more like the published site.
+Open <http://localhost:8000> in your browser. Use the local web server so extension-free planner URLs work as they do on the published site.
 
 ## Publish with GitHub Pages
 
@@ -20,8 +20,10 @@ Open <http://localhost:8000> in your browser. You can also open `index.html` dir
 
 ## Project layout
 
-- `index.html` — gear planner page.
-- `stat-builds/` and `stat-build.html` — stat planner page and legacy entry point.
+- `index.html` — gear planner page at the site root.
+- `ship-builder/` — ship planner page at `/ship-builder/`.
+- `stat-builds/` — stat planner page at `/stat-builds/`.
+- `ship-builder.html` and `stat-build.html` — legacy entry points that redirect to the clean URLs.
 - `app.js`, `stat-build.js`, `theme.js` — planner behavior, calculations, and theme.
 - `styles.css` — page styling.
 - `*-catalog.js` and `*-records.js` — gear, weapon, and stat data.

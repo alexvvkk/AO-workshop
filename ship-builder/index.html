@@ -1,0 +1,91 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#09131d">
+  <title>Ship Builder · Arcane Odyssey</title>
+  <link rel="icon" type="image/png" href="../assets/everthel-4.2.png">
+  <link rel="stylesheet" href="../styles.css?v=ship-magic-picker-ram-sort-20261124">
+  <script src="../theme.js?v=theme-no-light-20261123" defer></script>
+</head>
+<body>
+  <div class="planner-shell ship-builder-shell">
+    <header class="planner-topbar">
+      <a class="brand" href="../" aria-label="Gear Workshop home">
+        <img class="brand-mark-image" src="../assets/everthel-4.2.png" alt="">
+        <span>ARCANE <b>ODYSSEY</b><small>SHIP BUILDER</small></span>
+      </a>
+      <div class="planner-nav"><a class="planner-back" href="../">← Gear Workshop</a><a class="planner-back" href="../stat-builds/">Stat Planner</a></div>
+    </header>
+    <div class="color-theme-bar">
+      <label for="theme-select">COLOR THEME</label>
+      <select id="theme-select" aria-label="Color theme">
+        <option value="crimson">Everthel Red</option>
+        <option value="blue">Blue</option>
+        <option value="dark">Dark</option>
+      </select>
+    </div>
+    <section class="saved-build-toolbar ship-saved-build-toolbar" aria-label="Saved ships">
+      <span class="saved-build-title">SAVED SHIPS</span>
+      <div class="saved-build-controls ship-saved-build-controls">
+        <label for="ship-build-name">SHIP NAME<input id="ship-build-name" type="text" maxlength="40" placeholder="Untitled ship"></label>
+        <select id="saved-ship-build-select" aria-label="Choose a saved ship"><option value="">No saved ships</option></select>
+        <button class="button button-accent" id="save-named-ship-build" type="button">Save ship</button>
+        <button class="button button-quiet" id="load-named-ship-build" type="button" disabled>Load ship</button>
+        <button class="button button-quiet" id="update-named-ship-build" type="button" disabled title="Update the selected ship with the current ship setup">Update ship</button>
+        <button class="button button-quiet" id="delete-named-ship-build" type="button" disabled title="Delete the selected saved ship">Delete ship</button>
+        <span class="ship-save-state" id="ship-save-state" role="status" aria-live="polite">Changes save locally</span>
+      </div>
+    </section>
+    <main class="ship-builder-main">
+      <div class="planner-heading">
+        <div><span class="eyebrow">SHIP LOADOUT</span><h1>Ship Builder</h1></div>
+        <button class="button button-quiet" id="clear-ship-build" type="button">Clear ship</button>
+      </div>
+      <div class="ship-builder-layout">
+        <section class="ship-builder-config planner-panel">
+          <div class="planner-panel-heading"><h2>Build setup</h2><small id="ship-level-note">Level 10+</small></div>
+          <div id="ship-picker"></div>
+          <div id="crew-picker"></div>
+          <div id="rowboat-attachment-picker"></div>
+          <div class="ship-field"><span>QUARTERMASTERS</span><div id="quartermaster-slots" class="quartermaster-slots"></div></div>
+          <div class="ship-field"><span>DECKHANDS</span><div id="deckhand-slots" class="deckhand-slots"></div></div>
+          <div class="ship-part-row">
+            <div id="hull-picker"></div>
+            <div id="hull-enchant-picker"></div>
+          </div>
+          <div class="ship-part-row">
+            <div id="sail-picker"></div>
+            <div id="sail-enchant-picker"></div>
+          </div>
+          <div class="ship-part-row">
+            <div id="cannon-picker"></div>
+            <div id="cannon-enchant-picker"></div>
+          </div>
+          <div id="siege-part-row" class="ship-part-row">
+            <div id="siege-picker"></div>
+            <div id="siege-enchant-picker"></div>
+          </div>
+          <div id="ram-part-row" class="ship-part-row">
+            <div id="ram-picker"></div>
+            <div id="ram-enchant-picker"></div>
+          </div>
+        </section>
+        <aside class="ship-totals planner-panel">
+          <div class="planner-panel-heading"><h2>Ship totals</h2></div>
+          <img class="ship-preview" id="ship-preview" alt="">
+          <h3 id="ship-name"></h3>
+          <section class="ship-magic-section" aria-label="Ship magic selections">
+            <div class="ship-magic-section-title">MAGIC SELECTION</div>
+            <div class="ship-magic-controls" id="ship-magic-controls"></div>
+          </section>
+          <div class="ship-stat-list" id="ship-stat-list"></div>
+        </aside>
+      </div>
+    </main>
+  </div>
+  <div class="toast" id="ship-toast" role="status" aria-live="polite"></div>
+  <script src="../ship-builder.js?v=ship-magic-picker-ram-sort-20261124"></script>
+</body>
+</html>

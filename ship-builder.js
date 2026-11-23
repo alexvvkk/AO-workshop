@@ -151,7 +151,7 @@ function formatShipEnchantStats(stats){
 }
 function formatShipEnchantStatsHTML(stats){
   return Object.entries(stats||{}).filter(([,value])=>value!==0).map(([key,value])=>{
-    const icon=SHIP_STAT_ICONS[key]?`<img class="ship-inline-stat-icon" src="assets/${SHIP_STAT_ICONS[key]}" alt="">`:"";
+    const icon=SHIP_STAT_ICONS[key]?`<img class="ship-inline-stat-icon" src="../assets/${SHIP_STAT_ICONS[key]}" alt="">`:"";
     const label=SHIP_STAT_LABELS[key]||({damageBonus:"Damage Bonus",rangeBonus:"Range Bonus",spreadBonus:"Spread Bonus",reloadModifier:"Reload Modifier",damageMultiplier:"Damage",rangeMultiplier:"Range",spreadMultiplier:"Spread",reload:"Reload",ramSpeed:"Ram Speed",spread:"Spread",fuseLength:"Fuse Length"}[key]||key);
     const signedValue=key!=="reload"&&key!=="fuseLength";
     const formatted=key.endsWith("Multiplier")?`x${value}`:key==="stability"||key==="sailResilience"?`${value>0?"+":""}${value}%`:signedValue?`${value>0?"+":""}${value}`:value;
@@ -370,11 +370,11 @@ function calculate(){
   for(const [key,value]of Object.entries(sailEnchant.stats||{}))if(key!=="ramSpeed")totals[key]=(totals[key]||0)+value;
   for(const [key,value]of Object.entries(ramEnchant.stats||{}))if(key!=="ramSpeed")totals[key]=(totals[key]||0)+value;
   document.getElementById("ship-name").textContent=ship.name;
-  document.getElementById("ship-preview").src=`assets/${ship.image}`;
+  document.getElementById("ship-preview").src=`../assets/${ship.image}`;
   document.getElementById("ship-preview").alt=ship.name;
   document.getElementById("ship-level-note").textContent=`Level ${ship.level}+`;
   document.getElementById("ship-stat-list").innerHTML=SHIP_STAT_KEYS.filter(key=>totals[key]!==undefined).map(key=>{
-    const icon=SHIP_STAT_ICONS[key]?`<img src="assets/${SHIP_STAT_ICONS[key]}" alt="${SHIP_STAT_LABELS[key]}">`:"";
+    const icon=SHIP_STAT_ICONS[key]?`<img src="../assets/${SHIP_STAT_ICONS[key]}" alt="${SHIP_STAT_LABELS[key]}">`:"";
     const value=key==="stability"||key==="sailResilience"?`${totals[key]}%`:totals[key];
     return `<div class="ship-stat-row">${icon}<span>${SHIP_STAT_LABELS[key]}</span><b>${value}</b></div>`;
   }).join("");
