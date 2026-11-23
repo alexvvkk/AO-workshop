@@ -6,8 +6,8 @@
   <meta name="theme-color" content="#09131d">
   <title>Ship Builder · Arcane Odyssey</title>
   <link rel="icon" type="image/png" href="assets/everthel-4.2.png">
-  <link rel="stylesheet" href="styles.css?v=ship-part-compatibility-20261121">
-  <script src="theme.js?v=color-themes-light-20261121" defer></script>
+  <link rel="stylesheet" href="styles.css?v=ship-magic-picker-ram-sort-20261124">
+  <script src="theme.js?v=theme-no-light-20261123" defer></script>
 </head>
 <body>
   <div class="planner-shell ship-builder-shell">
@@ -24,7 +24,6 @@
         <option value="crimson">Everthel Red</option>
         <option value="blue">Blue</option>
         <option value="dark">Dark</option>
-        <option value="light">Light</option>
       </select>
     </div>
     <section class="saved-build-toolbar ship-saved-build-toolbar" aria-label="Saved ships">
@@ -52,7 +51,6 @@
           <div id="rowboat-attachment-picker"></div>
           <div class="ship-field"><span>QUARTERMASTERS</span><div id="quartermaster-slots" class="quartermaster-slots"></div></div>
           <div class="ship-field"><span>DECKHANDS</span><div id="deckhand-slots" class="deckhand-slots"></div></div>
-          <div id="magic-picker"></div>
           <div class="ship-part-row">
             <div id="hull-picker"></div>
             <div id="hull-enchant-picker"></div>
@@ -78,16 +76,16 @@
           <div class="planner-panel-heading"><h2>Ship totals</h2></div>
           <img class="ship-preview" id="ship-preview" alt="">
           <h3 id="ship-name"></h3>
+          <section class="ship-magic-section" aria-label="Ship magic selections">
+            <div class="ship-magic-section-title">MAGIC SELECTION</div>
+            <div class="ship-magic-controls" id="ship-magic-controls"></div>
+          </section>
           <div class="ship-stat-list" id="ship-stat-list"></div>
         </aside>
       </div>
-      <section class="ship-part-details planner-panel">
-        <div class="planner-panel-heading"><h2>Selected part stats</h2></div>
-        <div id="ship-part-details"></div>
-      </section>
     </main>
   </div>
   <div class="toast" id="ship-toast" role="status" aria-live="polite"></div>
-  <script src="ship-builder.js?v=ship-magic-storage-icon-20261121"></script>
+  <script src="ship-builder.js?v=ship-magic-picker-ram-sort-20261124"></script>
 </body>
 </html>

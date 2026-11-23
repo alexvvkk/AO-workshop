@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="Gear image placeholder">
+  <rect x="3" y="3" width="58" height="58" rx="8" fill="#241311" stroke="#79504b" stroke-width="2"/>
+  <path d="M32 12 48 28 32 52 16 28Z" fill="#c97975" fill-opacity=".2" stroke="#d89a91" stroke-width="2"/>
+  <path d="m32 12 8 16-8 24-8-24Z" fill="#d89a91" fill-opacity=".22"/>
+  <path d="M16 28h32M24 28l8-16 8 16" fill="none" stroke="#d89a91" stroke-width="1.5"/>
+</svg>

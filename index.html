@@ -7,8 +7,8 @@
   <title>Arcane Odyssey · Gear Workshop</title>
   <link rel="icon" type="image/png" href="assets/everthel-4.2.png">
   <link rel="apple-touch-icon" href="assets/everthel-4.2.png">
-  <link rel="stylesheet" href="styles.css?v=gear-player-level-compact-20261121">
-  <script src="theme.js?v=color-themes-light-20261121" defer></script>
+  <link rel="stylesheet" href="styles.css?v=screenshot-match-stats-v2-20261123">
+  <script src="theme.js?v=theme-no-light-20261123" defer></script>
 </head>
 <body>
   <div class="app-shell">
@@ -35,7 +35,6 @@
         <option value="crimson">Everthel Red</option>
         <option value="blue">Blue</option>
         <option value="dark">Dark</option>
-        <option value="light">Light</option>
       </select>
       <button class="button button-quiet advanced-toggle" id="toggle-advanced" type="button" aria-pressed="false" aria-label="Toggle advanced stats and formulas" title="Show or hide detailed stats and formulas">Advanced</button>
     </div>
@@ -56,20 +55,20 @@
     </section>
 
     <main>
+      <header class="screenshot-overview-heading">
+        <span class="eyebrow">LOADOUT OVERVIEW</span>
+        <h1 id="screenshot-build-title">Loadout Overview</h1>
+      </header>
       <section class="layout">
         <div class="workshop">
           <div class="section-heading">
             <div class="equipment-heading">
               <div><span class="eyebrow">YOUR LOADOUT</span><h2>Equipment</h2></div>
-              <div class="global-filter">
-                <span class="filter-label">ONLY SHOW GEAR &amp; ENHANCEMENTS WITH</span>
-                <div class="filter-options" id="stat-filter-list" aria-label="Filter gear, gems, enchants, and modifiers by stats"></div>
-                <button class="clear-filters" id="clear-filters" type="button">Clear</button>
-              </div>
             </div>
             <button class="clear-all-button" id="clear-all-gear" type="button">Clear all gear</button>
           </div>
           <div class="gear-grid" id="gear-grid"></div>
+          <div class="screenshot-empty-state" id="screenshot-empty-state" hidden>No gear selected yet. Equip items to build your overview.</div>
         </div>
 
         <div class="summary-column">
@@ -84,6 +83,7 @@
             <div class="ritual-controls">
               <label for="dragonblood-ritual">DRAGONBLOOD RITUAL</label>
               <select id="dragonblood-ritual"></select>
+              <span class="screenshot-ritual-name" id="screenshot-ritual-name"></span>
               <span class="modifier-note" id="dragonblood-effect"></span>
             </div>
             <div class="health-total">
@@ -124,6 +124,63 @@
       <footer>Built for theorycrafting. Not affiliated with the Arcane Odyssey developers.</footer>
     </main>
   </div>
+  <dialog class="gem-combination-dialog" id="gem-combination-dialog" aria-labelledby="gem-combination-title">
+    <div class="gem-combination-dialog-content">
+      <header class="gem-combination-dialog-header">
+        <div>
+          <h2 id="gem-combination-title">Choose two gems</h2>
+          <p>Same-gem combinations are listed first.</p>
+        </div>
+        <button class="gem-combination-close" type="button" data-close-gem-combination aria-label="Close gem combinations">×</button>
+      </header>
+      <div class="picker-filter-bar">
+        <div class="picker-filter-heading"><span>FILTER GEMS BY STATS</span><button class="clear-filters" type="button" data-clear-filters>Clear</button></div>
+        <div class="filter-options picker-filter-options" data-stat-filter-list aria-label="Filter gem combinations by stats"></div>
+      </div>
+      <div class="gem-combination-dialog-tools">
+        <input id="gem-combination-search" type="search" placeholder="Search gem combinations…" autocomplete="off" aria-label="Search gem combinations">
+        <span id="gem-combination-count" aria-live="polite"></span>
+      </div>
+      <div class="gem-combination-options" id="gem-combination-options"></div>
+      <footer class="gem-combination-dialog-footer">
+        <button class="button button-quiet" id="clear-gem-combination" type="button">Clear gems</button>
+        <button class="button button-accent" type="button" data-close-gem-combination>Done</button>
+      </footer>
+    </div>
+  </dialog>
+  <dialog class="gem-combination-dialog gear-picker-dialog" id="gear-picker-dialog" aria-labelledby="gear-picker-title">
+    <div class="gem-combination-dialog-content">
+      <header class="gem-combination-dialog-header">
+        <div>
+          <h2 id="gear-picker-title">Choose an item</h2>
+          <p id="gear-picker-subtitle">Select an item to see its stats.</p>
+        </div>
+        <button class="gem-combination-close" type="button" data-close-gear-picker aria-label="Close gear picker">×</button>
+      </header>
+      <div class="picker-filter-bar">
+        <div class="picker-filter-heading"><span>FILTER GEAR BY STATS</span><button class="clear-filters" type="button" data-clear-filters>Clear</button></div>
+        <div class="filter-options picker-filter-options" data-stat-filter-list aria-label="Filter gear by stats"></div>
+      </div>
+      <div class="gear-category-filter" id="gear-category-filter" hidden>
+        <span class="gear-category-filter-label">ITEM TYPE</span>
+        <div class="gear-category-filter-options" role="group" aria-label="Filter accessory type">
+          <button type="button" data-filter-gear-category="all" aria-pressed="true" class="is-selected">All</button>
+          <button type="button" data-filter-gear-category="Accessory" aria-pressed="false">Accessory</button>
+          <button type="button" data-filter-gear-category="Helmet" aria-pressed="false">Helmet</button>
+          <button type="button" data-filter-gear-category="Amulet" aria-pressed="false">Amulet</button>
+        </div>
+      </div>
+      <div class="gem-combination-dialog-tools">
+        <input id="gear-picker-search" type="search" placeholder="Search items…" autocomplete="off" aria-autocomplete="list" aria-controls="gear-picker-options" aria-label="Search gear items">
+        <span id="gear-picker-count" aria-live="polite"></span>
+      </div>
+      <div class="gear-picker-options" id="gear-picker-options" role="listbox" aria-label="Available gear items"></div>
+      <footer class="gem-combination-dialog-footer">
+        <button class="button button-quiet" id="clear-gear-selection" type="button">Clear item</button>
+        <button class="button button-accent" type="button" data-close-gear-picker>Done</button>
+      </footer>
+    </div>
+  </dialog>
   <div class="toast" id="toast" role="status" aria-live="polite"></div>
   <script src="item-catalog.js?v=amulets-fair-20261111"></script>
   <script src="magic-gear-catalog.js?v=arcanium-gear-20261111"></script>
@@ -131,6 +188,7 @@
   <script src="newer-armor-records.js?v=arcanium-base-stats-20261121"></script>
   <script src="wiki-armor-records.js"></script>
   <script src="dragon-armor-records.js"></script>
-  <script src="app.js?v=gear-player-scaled-level-badge-layout-20261121"></script>
+  <script src="gear-icon-map.js?v=wiki-gear-icons-20261123-expanded-arcsphere"></script>
+  <script src="app.js?v=screenshot-match-stats-v2-20261123"></script>
 </body>
 </html>

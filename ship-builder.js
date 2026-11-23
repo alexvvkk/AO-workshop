@@ -36,11 +36,12 @@ const HULLS=[
   ["Trimmed Rugged Hull",170,{durability:10200,stability:13,ramDefense:782}]
 ].map(([name,level,stats])=>({name,level,stats}));
 const SAILS=[
-  ["Flax Sailcloth",30,{speed:6}],["Wool Sailcloth",30,{ramStrength:60,sailResilience:10}],["Hemp Sailcloth",80,{speed:8}],["Cotton Sailcloth",80,{ramStrength:160,sailResilience:12}],
-  ["Archaic Sailcloth",120,{speed:10,ramStrength:60,sailResilience:3}],["Willow Sailcloth",130,{speed:11}],["Reinforced Sailcloth",130,{ramStrength:260,sailResilience:13}],
+  ["Flax Sailcloth",30,{speed:6}],["Wool Sailcloth",30,{ramStrength:60,sailResilience:10}],["Hemp Sailcloth",80,{speed:8}],["Cotton Sailcloth",80,{durability:160,sailResilience:12}],
+  ["Archaic Sailcloth",120,{speed:10,durability:60,sailResilience:3}],["Willow Sailcloth",130,{speed:11}],["Reinforced Sailcloth",130,{durability:260,sailResilience:13}],
   ["Lavender Sailcloth",180,{speed:13}],["Bronze Sailcloth",180,{ramStrength:360,sailResilience:14}],["Jacaranda Sailcloth",230,{speed:13}],["Silver Sailcloth",230,{ramStrength:460,sailResilience:14}],
   ["Mahogany Sailcloth",280,{speed:13}],["Golden Sailcloth",280,{ramStrength:560,sailResilience:14}],["Cashmere Sailcloth",350,{speed:13}],["Platinum Sailcloth",350,{ramStrength:700,sailResilience:14}]
 ].map(([name,level,stats])=>({name,level,stats}));
+const AVAILABLE_SAILCLOTHS=new Set(["Cotton Sailcloth","Archaic Sailcloth","Willow Sailcloth","Reinforced Sailcloth"]);
 const CANNONS=[
   {name:"Bronze Cannons",level:80,damage:1.408,range:1,reload:6},
   {name:"Heavy Bronze Cannons",level:80,damage:1.608,range:1.2,reload:7},
@@ -108,13 +109,15 @@ const SHIP_PICKER_SORTS={
   "hull-select":[["durability","Durability"],["stability","Stability"],["turning","Turning"],["speed","Speed"],["ramDefense","Ram Defense"]],
   "sail-select":[["speed","Speed"],["sailResilience","Sail Resilience"],["ramStrength","Ram Strength"]],
   "cannon-select":[["damageMultiplier","Damage"],["rangeMultiplier","Range"],["reload","Reload"]],
-  "siege-select":[["damageMultiplier","Damage"],["rangeMultiplier","Range"],["spreadMultiplier","Spread"],["reload","Reload"]]
+  "siege-select":[["damageMultiplier","Damage"],["rangeMultiplier","Range"],["spreadMultiplier","Spread"],["reload","Reload"]],
+  "ram-select":[["ramSpeed","Ram Speed"],["ramStrength","Damage"],["durability","Durability"]]
 };
 const SHIP_PICKER_SORT_STATE={
   "hull-select":{key:"durability",descending:true},
   "sail-select":{key:"speed",descending:true},
   "cannon-select":{key:"damageMultiplier",descending:true},
-  "siege-select":{key:"damageMultiplier",descending:true}
+  "siege-select":{key:"damageMultiplier",descending:true},
+  "ram-select":{key:"ramSpeed",descending:true}
 };
 const SHIP_BUILD_STORAGE_KEY="ao-ship-builder-v1";
 const SAVED_SHIP_BUILDS_KEY="ao-ship-builder-presets-v1";
@@ -155,18 +158,6 @@ function formatShipEnchantStatsHTML(stats){
     return `<span class="ship-inline-stat">${icon}${label} ${formatted}</span>`;
   }).join("")||"<span>No bonus</span>";
 }
-function adjustReload(reload,modifier){
-  if(!modifier)return reload;
-  if(typeof reload==="number")return reload+modifier;
-  if(typeof reload==="string"&&/^\d+(?: or \d+)+$/.test(reload))return reload.split(" or ").map(value=>Number(value)+modifier).join(" or ");
-  return reload;
-}
-function combineShipStats(...groups){
-  return groups.reduce((combined,stats)=>{
-    for(const [key,value]of Object.entries(stats||{}))combined[key]=(combined[key]||0)+value;
-    return combined;
-  },{});
-}
 function getCannonEnchantPreviewStats(value,selectId){
   const enchant=CANNON_ENCHANTS[value];
   const stats=selectId==="siege-enchant-select"?enchant?.siege||{}:enchant?.cannon||{};
@@ -189,6 +180,22 @@ function loadSavedShipBuilds(){
     return Array.isArray(saved)?saved.filter(entry=>entry&&typeof entry.name==="string"&&entry.build&&typeof entry.build==="object"):[];
   }catch(error){console.warn("Could not read saved ships.",error);return [];}
 }
+function getSelectedShipMagics(){
+  return [...document.querySelectorAll("[data-ship-magic-index]")].map(select=>select.value);
+}
+function renderShipMagicSelectors(values){
+  const magics=Array.from({length:2},(_,index)=>{
+    const value=typeof values?.[index]==="string"?values[index]:"";
+    return MAGIC_NAMES.includes(value)&&value!=="Arcanium"?value:"";
+  });
+  if(!magics[0]||magics[0]===magics[1])magics[1]="";
+  document.getElementById("ship-magic-controls").innerHTML=magics.map((selected,index)=>{
+    const available=MAGIC_NAMES.filter(magic=>magic!=="Arcanium"&&!magics.some((other,otherIndex)=>otherIndex!==index&&other===magic));
+    const options=`<option value="">No magic selected</option>${available.map(magic=>`<option value="${magic}"${magic===selected?" selected":""}>${magic}</option>`).join("")}`;
+    return `<label class="ship-field ship-magic-field">MAGIC ${index+1}<select data-ship-magic-index="${index}" aria-label="Magic ${index+1}"${index===1&&!magics[0]?" disabled":""}>${options}</select></label>`;
+  }).join("");
+  return magics;
+}
 function getShipBuildState(){
   return {
     name:document.getElementById("ship-build-name").value,
@@ -197,7 +204,7 @@ function getShipBuildState(){
     attachments:[...document.querySelectorAll("[data-rowboat-attachment]")].map(select=>select.value),
     quartermasters:[...document.querySelectorAll("[data-quartermaster]")].map(select=>select.value),
     deckhands:[...document.querySelectorAll("[data-deckhand-type]")].map(select=>select.value),
-    magic:document.getElementById("magic-select").value,
+    magics:getSelectedShipMagics(),
     hull:document.getElementById("hull-select").value,
     hullEnchant:document.getElementById("hull-enchant-select").value,
     sail:document.getElementById("sail-select").value,
@@ -318,7 +325,6 @@ function calculate(){
     document.getElementById("ship-preview").alt="";
     document.getElementById("ship-level-note").textContent="No ship selected";
     document.getElementById("ship-stat-list").innerHTML="";
-    document.getElementById("ship-part-details").innerHTML="";
     return;
   }
   const crew=SHIP_CREWS[Number(document.getElementById("crew-select").value)]||SHIP_CREWS[0];
@@ -372,48 +378,6 @@ function calculate(){
     const value=key==="stability"||key==="sailResilience"?`${totals[key]}%`:totals[key];
     return `<div class="ship-stat-row">${icon}<span>${SHIP_STAT_LABELS[key]}</span><b>${value}</b></div>`;
   }).join("");
-  const selectedDeckhands=[...document.querySelectorAll("[data-deckhand-type]")]
-    .map((select,index)=>({index:index+1,type:DECKHAND_TYPES.find(entry=>entry.name===select.value)}))
-    .filter(entry=>entry.type);
-  const deckhandStats=selectedDeckhands.reduce((combined,entry)=>{
-    for(const [key,value]of Object.entries(entry.type.stats))combined[key]=(combined[key]||0)+value;
-    return combined;
-  },{});
-  const selectedQuartermasters=[...document.querySelectorAll("[data-quartermaster]")]
-    .map((select,index)=>({index:index+1,quartermaster:QUARTERMASTERS.find(entry=>entry.name===select.value)||QUARTERMASTERS[0]}))
-    .filter(entry=>entry.quartermaster.name!=="None");
-  const quartermasterStats=selectedQuartermasters.reduce((combined,entry)=>{
-    for(const [key,value]of Object.entries(entry.quartermaster.stats))combined[key]=(combined[key]||0)+value;
-    return combined;
-  },{});
-  const attachmentStats=selectedAttachments.reduce((combined,entry)=>{
-    for(const [key,value]of Object.entries(entry.stats))combined[key]=(combined[key]||0)+value;
-    return combined;
-  },{});
-  const attachmentPart=selectedAttachments.length?{
-    name:selectedAttachments.map(entry=>entry.name).join(", "),
-    level:selectedAttachments[0].level
-  }:{name:"None"};
-  document.getElementById("ship-part-details").innerHTML=[
-    {label:"Hull",part:hull,enchant:hullEnchant,stats:hull?combineShipStats(hull.stats,hullEnchant.stats):{}},
-    {label:"Sailcloth",part:sail,enchant:sailEnchant,stats:sail?combineShipStats(sail.stats,sailEnchant.stats):{}},
-    {label:"Cannon",part:cannon,enchant:cannonEnchant,stats:cannon?{damageMultiplier:cannon.damage+(cannonEnchantStats.damage||0),rangeMultiplier:cannon.range+(cannonEnchantStats.range||0),reload:cannon.reload+(cannonEnchantStats.reload||0),...(cannon.magicStorage===undefined?{}:{magicStorage:cannon.magicStorage})}:{}},
-    ...(ship.canUseSiegeWeapons?[{label:"Siege Weapon",part:siege,enchant:siegeEnchant,stats:siege?{damageMultiplier:siege.damage+(siegeEnchantStats.damage||0),rangeMultiplier:siege.range+(siegeEnchantStats.range||0),spreadMultiplier:siege.spread+(siegeEnchantStats.spread||0),fuseLength:siege.fuseLength,reload:adjustReload(siege.reload,siegeEnchantStats.reload||0),speed:siege.speed,...(siege.magicStorage===undefined?{}:{magicStorage:siege.magicStorage})}:{}}]:[]),
-    ...(ship.canUseRam?[{label:"Ram",part:ram,enchant:ramEnchant,stats:ram?combineShipStats(ram.stats,ramEnchant.stats):{}}]:[]),
-    {label:"Crew",part:crew,stats:crew.stats},
-    {label:"Quartermasters",part:{name:selectedQuartermasters.length?selectedQuartermasters.map(entry=>entry.quartermaster.name).join(", "):"No quartermasters selected"},stats:quartermasterStats},
-    {label:"Deckhands",part:{name:selectedDeckhands.length?selectedDeckhands.map(entry=>`${entry.type.name} ${entry.index}`).join(", "):"No deckhands selected"},stats:deckhandStats},
-    {label:"Rowboat Attachments",part:attachmentPart,stats:attachmentStats}
-  ].map(({label,part,stats,enchant})=>{
-    const items=Object.entries(stats||{}).map(([key,value])=>{
-      const labelText=SHIP_STAT_LABELS[key]||({damage:"Damage Bonus",range:"Range Bonus",damageMultiplier:"Damage",rangeMultiplier:"Range",spread:"Spread",spreadMultiplier:"Spread",fuseLength:"Fuse Length",reload:"Reload"}[key]||key);
-      const icon=SHIP_STAT_ICONS[key]?`<img class="ship-inline-stat-icon" src="assets/${SHIP_STAT_ICONS[key]}" alt="">`:"";
-      const formatted=key.endsWith("Multiplier")?`x${value}`:key==="stability"||key==="sailResilience"?value+"%":value;
-      return `<span class="ship-part-stat">${icon}${labelText}: <b>${formatted}</b></span>`;
-    }).join("");
-    const enchantLabel=enchant?.label&&enchant.label!=="No enchant"?` · ${enchant.label}`:"";
-    return `<article class="ship-part-card"><span>${label}</span><h3>${part?.name||"None"}</h3><small>Level ${part?.level||ship.level}+${enchantLabel}</small><div>${items||"No stat changes"}</div></article>`;
-  }).join("");
 }
 function getShipOptionStats(selectId,value){
   if(value==="")return {};
@@ -439,14 +403,14 @@ function renderShipSearchPicker(selectId){
   const sortOptions=SHIP_PICKER_SORTS[selectId];
   const sortState=SHIP_PICKER_SORT_STATE[selectId];
   const sortControls=sortOptions?`<div class="ship-picker-sort-controls"><select class="ship-picker-sort-key" aria-label="Sort ${label} by">${sortOptions.map(([key,title])=>`<option value="${key}">${title}</option>`).join("")}</select><button class="ship-picker-sort-direction" type="button" aria-label="Toggle sort direction"></button></div>`:"";
-  host.innerHTML=`<div class="ship-picker-header"><label class="ship-search-label">${label}<span class="ship-picker-count">${options.length} items</span></label>${sortControls}</div><div class="ship-search-wrap"><input class="ship-search-input" type="search" data-ship-search="${selectId}" placeholder="${select.selectedOptions[0]?.text||`Search ${label.toLowerCase()}...`}" autocomplete="off"><span class="ship-search-icon">⌕</span><div class="ship-picker-results" data-ship-results="${selectId}"></div></div><div class="ship-picker-preview" data-ship-preview="${selectId}"></div>`;
+  host.innerHTML=`<div class="ship-picker-header"><label class="ship-search-label">${label}<span class="ship-picker-count">${options.length} items</span></label>${sortControls}</div><div class="ship-search-wrap"><input class="ship-search-input" type="search" data-ship-search="${selectId}" placeholder="${select.selectedOptions[0]?.text||`Search ${label.toLowerCase()}...`}" autocomplete="off"><div class="ship-picker-results" data-ship-results="${selectId}"></div></div><div class="ship-picker-preview" data-ship-preview="${selectId}"></div>`;
   const input=host.querySelector("input");
   const results=host.querySelector(".ship-picker-results");
   const preview=host.querySelector(".ship-picker-preview");
   const sortKey=host.querySelector(".ship-picker-sort-key");
   const sortDirection=host.querySelector(".ship-picker-sort-direction");
   if(sortKey)sortKey.value=sortState.key;
-  const showStats=selectId!=="magic-select"&&selectId!=="ship-select";
+  const showStats=selectId!=="ship-select";
   preview.hidden=!showStats;
   const renderResults=()=>{
     const search=input.value.trim().toLowerCase();
@@ -492,12 +456,12 @@ function renderShipSearchPicker(selectId){
   results.hidden=true;
 }
 function refreshAllShipPickers(){
-  for(const selectId of ["ship-select","crew-select","magic-select","hull-select","sail-select","cannon-select","siege-select","ram-select","hull-enchant-select","sail-enchant-select","cannon-enchant-select","siege-enchant-select","ram-enchant-select"])renderShipSearchPicker(selectId);
+  for(const selectId of ["ship-select","crew-select","hull-select","sail-select","cannon-select","siege-select","ram-select","hull-enchant-select","sail-enchant-select","cannon-enchant-select","siege-enchant-select","ram-enchant-select"])renderShipSearchPicker(selectId);
 }
 function renderShipSlotPicker(container,label,options,statsGetter,attributeName,optionFilter){
   const selectIndex=container.querySelectorAll("select").length;
   const selectId=`${attributeName}-${selectIndex}-${Date.now()}`;
-  container.innerHTML=`<label>${label}</label><div class="ship-slot-search-picker"><input type="search" class="ship-slot-search" placeholder="Search ${label.toLowerCase()}..." autocomplete="off"><span class="ship-search-icon">⌕</span><div class="ship-slot-results" hidden></div><div class="ship-slot-preview"></div><select hidden ${attributeName}="" id="${selectId}"><option value="">None</option>${options.map(option=>`<option value="${option.value||option.name||option}">${option.label||option.name||option}</option>`).join("")}</select></div>`;
+  container.innerHTML=`<label>${label}</label><div class="ship-slot-search-picker"><input type="search" class="ship-slot-search" placeholder="Search ${label.toLowerCase()}..." autocomplete="off"><div class="ship-slot-results" hidden></div><div class="ship-slot-preview"></div><select hidden ${attributeName}="" id="${selectId}"><option value="">None</option>${options.map(option=>`<option value="${option.value||option.name||option}">${option.label||option.name||option}</option>`).join("")}</select></div>`;
   const select=container.querySelector("select");
   const input=container.querySelector("input");
   const results=container.querySelector(".ship-slot-results");
@@ -531,7 +495,7 @@ function renderShipSlotPicker(container,label,options,statsGetter,attributeName,
   document.addEventListener("click",event=>{if(!container.contains(event.target))results.hidden=true;});
 }
 function init(){
-  for(const [containerId,selectId]of [["ship-picker","ship-select"],["crew-picker","crew-select"],["magic-picker","magic-select"]]){
+  for(const [containerId,selectId]of [["ship-picker","ship-select"],["crew-picker","crew-select"]]){
     document.getElementById(containerId).innerHTML=`<select id="${selectId}" hidden></select><div class="ship-search-picker" data-ship-picker="${selectId}"></div>`;
   }
   for(const [containerId,selectId]of [["hull-picker","hull-select"],["sail-picker","sail-select"],["cannon-picker","cannon-select"],["siege-picker","siege-select"],["ram-picker","ram-select"],["hull-enchant-picker","hull-enchant-select"],["sail-enchant-picker","sail-enchant-select"],["cannon-enchant-picker","cannon-enchant-select"],["siege-enchant-picker","siege-enchant-select"],["ram-enchant-picker","ram-enchant-select"]]){
@@ -539,14 +503,16 @@ function init(){
   }
   document.getElementById("ship-select").innerHTML=`<option value="">Select ship</option>`+SHIPS.map(s=>`<option value="${s.id}">${s.name}</option>`).join("");
   document.getElementById("crew-select").innerHTML=`<option value="">Select crew</option>`+SHIP_CREWS.map((crew,i)=>`<option value="${i}">${crew.name}</option>`).join("");
-  document.getElementById("magic-select").innerHTML=`<option value="">No magic selected</option>`+["Arcanium",...MAGIC_NAMES.filter(name=>name!=="Arcanium")].map(name=>`<option value="${name}">${name}</option>`).join("");
+  renderShipMagicSelectors(["",""]);
   document.getElementById("hull-select").innerHTML=`<option value="">Select hull armor</option>`+HULLS.map((p,i)=>`<option value="${i}"${false?` selected`:``}>${p.name}</option>`).join("");
-  document.getElementById("sail-select").innerHTML=`<option value="">Select sailcloth</option>`+SAILS.map((p,i)=>`<option value="${i}">${p.name}</option>`).join("");
+  document.getElementById("sail-select").innerHTML=`<option value="">Select sailcloth</option>`+SAILS.map((part,index)=>({part,index})).filter(({part})=>AVAILABLE_SAILCLOTHS.has(part.name)).map(({part,index})=>`<option value="${index}">${part.name}</option>`).join("");
   const populateMagicParts=()=>{
-    const magic=document.getElementById("magic-select").value;
+    const magics=getSelectedShipMagics().filter(Boolean);
+    const allowedMagics=magics.length?magics:["Arcanium"];
     const cannonParts=CANNONS.filter(part=>{
-      if(!magic)return !/^(Lesser|Dull|Standard) /.test(part.name);
-      return part.name.endsWith(` ${magic} Cannons`);
+      if(magics.length)return allowedMagics.some(magic=>part.name.endsWith(` ${magic} Cannons`));
+      if(!/^(Lesser|Dull|Standard) /.test(part.name))return true;
+      return allowedMagics.some(magic=>part.name.endsWith(` ${magic} Cannons`));
     });
     const cannonSelect=document.getElementById("cannon-select");
     const cannonValue=cannonSelect.value;
@@ -556,8 +522,9 @@ function init(){
     }).join("");
     cannonSelect.value="";
     const siegeParts=SIEGE_WEAPONS.filter(part=>{
-      if(!magic)return !/^(Lesser|Dull|Standard) /.test(part.name);
-      return part.name.endsWith(` ${magic} Mortars`);
+      if(magics.length)return allowedMagics.some(magic=>part.name.endsWith(` ${magic} Mortars`));
+      if(!/^(Lesser|Dull|Standard) /.test(part.name))return true;
+      return allowedMagics.some(magic=>part.name.endsWith(` ${magic} Mortars`));
     });
     const siegeSelect=document.getElementById("siege-select");
     siegeSelect.innerHTML=`<option value="">Select siege weapon</option>`+siegeParts.map(part=>{
@@ -566,9 +533,9 @@ function init(){
     }).join("");
     siegeSelect.value="";
     const ramParts=RAMS.filter(part=>{
-      if(!magic)return !/^(Lesser|Dull|Standard) /.test(part.name);
-      if(magic==="Arcanium")return part.name==="Lesser Arcanium Ram";
-      return part.name.endsWith(` ${magic} Ram`);
+      if(magics.length)return allowedMagics.some(magic=>magic==="Arcanium"?part.name==="Lesser Arcanium Ram":part.name.endsWith(` ${magic} Ram`));
+      if(!/^(Lesser|Dull|Standard) /.test(part.name))return true;
+      return allowedMagics.some(magic=>magic==="Arcanium"?part.name==="Lesser Arcanium Ram":part.name.endsWith(` ${magic} Ram`));
     });
     const ramSelect=document.getElementById("ram-select");
     const ramValue=ramSelect.value;
@@ -615,7 +582,7 @@ function init(){
       });
     });
     document.getElementById("deckhand-slots").innerHTML=Array.from({length:count},(_,index)=>`
-      <div data-deckhand-slot="${index}"></div>`).join("");
+      <div class="ship-slot-picker" data-deckhand-slot="${index}"></div>`).join("");
     document.querySelectorAll("[data-deckhand-slot]").forEach((container,index)=>{
       renderShipSlotPicker(container,`DECKHAND ${index+1}`,DECKHAND_TYPES.map(type=>({value:type.name,label:type.name})),option=>DECKHAND_TYPES.find(type=>type.name===option.value)?.stats||{},"data-deckhand-type");
     });
@@ -678,7 +645,7 @@ function init(){
     document.getElementById("ship-build-name").value=typeof saved.name==="string"?saved.name:"";
     setValue("ship-select",saved.ship);
     populateDeckhands();
-    setValue("magic-select",saved.magic);
+    renderShipMagicSelectors(Array.isArray(saved.magics)?saved.magics:[saved.magic||"",""]);
     populateMagicParts();
     for(const [id,value]of [
       ["crew-select",saved.crew],["hull-select",saved.hull],["hull-enchant-select",saved.hullEnchant||"none"],
@@ -704,12 +671,20 @@ function init(){
     calculate();
     persistShipBuild();
   };
-  for(const id of ["ship-select","crew-select","magic-select","hull-select","sail-select","cannon-select","siege-select","ram-select","hull-enchant-select","sail-enchant-select","cannon-enchant-select","siege-enchant-select","ram-enchant-select"])document.getElementById(id).addEventListener("change",()=>{
+  document.getElementById("ship-magic-controls").addEventListener("change",event=>{
+    if(!event.target.matches("[data-ship-magic-index]"))return;
+    const magics=getSelectedShipMagics();
+    if(event.target.dataset.shipMagicIndex==="0"&&!magics[0])magics[1]="";
+    renderShipMagicSelectors(magics);
+    populateMagicParts();
+    calculate();
+    persistShipBuild();
+  });
+  for(const id of ["ship-select","crew-select","hull-select","sail-select","cannon-select","siege-select","ram-select","hull-enchant-select","sail-enchant-select","cannon-enchant-select","siege-enchant-select","ram-enchant-select"])document.getElementById(id).addEventListener("change",()=>{
     if(id==="ship-select"){
       updateShipWeaponAvailability();
       populateDeckhands();
     }
-    if(id==="magic-select")populateMagicParts();
     if(id.endsWith("-enchant-select"))reconcileWarshipEnchants(id);
     document.getElementById(id)._shipPreviewRefresh?.();
     renderShipSearchPicker(id);
@@ -737,7 +712,7 @@ function init(){
   document.getElementById("clear-ship-build").addEventListener("click",()=>{
     document.getElementById("ship-select").value="";
     document.getElementById("crew-select").value="";
-    document.getElementById("magic-select").value="";
+    renderShipMagicSelectors(["",""]);
     document.getElementById("hull-select").value="";
     document.getElementById("sail-select").value="";
     document.getElementById("cannon-select").value="";

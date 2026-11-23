@@ -327,6 +327,7 @@ const SLOTS = [
   {id:"pants",label:"LEGGINGS",name:"Leggings",categories:["Boots"]}
 ];
 const ACCESSORY_SLOT_IDS = ["accessory1","accessory2","accessory3"];
+const ITEM_ICON_SLOT_IDS = [...ACCESSORY_SLOT_IDS,"chestplate","pants"];
 const starter = {
   name:"", level:175, dragonbloodTier:0, statBuild:"", magics:[], fightingStyles:[], gear:{
     accessory1:null,accessory2:null,accessory3:null,chestplate:null,pants:null
@@ -335,13 +336,14 @@ const starter = {
 const SAVED_GEAR_BUILDS_KEY="ao-gear-workshop-presets-v1";
 let build = loadStoredBuild();
 let savedGearBuilds = loadSavedGearBuilds();
-const itemSearches = Object.fromEntries(SLOTS.map(slot=>[slot.id,""]));
-const itemDropdownOpen = Object.fromEntries(SLOTS.map(slot=>[slot.id,false]));
-const activeItemIndexes = Object.fromEntries(SLOTS.map(slot=>[slot.id,0]));
+let activeGearSlotId=null;
+let gearPickerSearch="";
+let activeGearCategory="all";
 const pickerSearches = {};
 const pickerDropdownOpen = {};
 const activePickerIndexes = {};
 const statFilters = new Set();
+let activeGemTarget = null;
 let saveTimer;
 let toastTimer;
 
@@ -674,6 +676,11 @@ function renderStatIcon(key,{decorative=false}={}){
 function renderStatValue(key,value){return `<span class="stat-value">${renderStatIcon(key)}<b>${formatStat(value)}</b></span>`;}
 function options(items,selected){return items.map(([value,label])=>`<option value="${esc(value)}"${value===selected?" selected":""}>${esc(label)}</option>`).join("");}
 function renderStatFilters(){return STAT_KEYS.map(key=>`<label class="filter-chip" title="${esc(STAT_LABELS[key])}"><input type="checkbox" data-filter-stat="${key}"${statFilters.has(key)?" checked":""}>${renderStatIcon(key,{decorative:true})}<span class="visually-hidden">${esc(STAT_LABELS[key])}</span></label>`).join("");}
+function syncStatFilterCheckboxes(){
+  document.querySelectorAll("[data-filter-stat]").forEach(input=>{input.checked=statFilters.has(input.dataset.filterStat);});
+  document.querySelectorAll("[data-clear-filters]").forEach(button=>{button.disabled=!statFilters.size;});
+}
+function pickerUsesStatFilters(kind){return kind==="gem"||kind==="fusionGem";}
 function pickerKey(slotId,kind,index=""){return index===""?`${slotId}:${kind}`:`${slotId}:${kind}:${index}`;}
 function getPickerBaseChoices(slotId,kind,index=""){
   const gear=build.gear[slotId];
@@ -704,7 +711,7 @@ function getPickerCandidates(slotId,kind,index="",query=""){
   const search=query.trim().toLowerCase();
   return getPickerBaseChoices(slotId,kind,index).filter(choice=>{
     const preview=getPickerPreview(slotId,kind,index,choice.value);
-    return [...statFilters].every(key=>safeNumber(preview.stats[key])!==0)
+    return (!pickerUsesStatFilters(kind)||[...statFilters].every(key=>safeNumber(preview.stats[key])!==0))
       &&(!search||choice.label.toLowerCase().includes(search));
   }).map(choice=>({...choice,preview:getPickerPreview(slotId,kind,index,choice.value)}));
 }
@@ -721,7 +728,7 @@ function renderPickerInput({slotId,kind,index="",label,placeholder,selectedValue
   const selectedLabel=choices.find(choice=>choice.value===selectedValue)?.label||"";
   const id=`${slotId}-${kind}${index===""?"":`-${index}`}-search`;
   const count=getPickerCandidates(slotId,kind,index).length;
-  return `<div class="field option-picker${pickerType}" data-option-picker="${key}"><label for="${id}">${esc(label)} <span class="item-count" data-picker-count="${key}">${count} / ${choices.length}</span></label><div class="item-search-wrap"><input id="${id}" class="item-search" type="search" data-picker-search="${key}" data-picker-slot="${slotId}" data-picker-kind="${kind}" data-picker-index="${index}" value="${esc(pickerSearches[key]||"")}" placeholder="${esc(selectedLabel||placeholder)}" autocomplete="off" role="combobox" aria-autocomplete="list" aria-controls="${id}-results" aria-expanded="${Boolean(pickerDropdownOpen[key])}" aria-label="Search ${esc(label.toLowerCase())}"${disabled?" disabled":""}><span class="search-icon" aria-hidden="true">⌕</span><div class="item-results" id="${id}-results" data-picker-results="${key}" role="listbox" hidden></div></div>${previewTitle?renderPickerPreview(previewStats,previewTitle,previewAtlanteanKey,previewEmptyText,key,Boolean(selectedValue)):""}</div>`;
+  return `<div class="field option-picker${pickerType}" data-option-picker="${key}"><label for="${id}">${esc(label)} <span class="item-count" data-picker-count="${key}">${count} / ${choices.length}</span></label><div class="item-search-wrap"><input id="${id}" class="item-search" type="search" data-picker-search="${key}" data-picker-slot="${slotId}" data-picker-kind="${kind}" data-picker-index="${index}" value="${esc(pickerSearches[key]||"")}" placeholder="${esc(selectedLabel||placeholder)}" autocomplete="off" role="combobox" aria-autocomplete="list" aria-controls="${id}-results" aria-expanded="${Boolean(pickerDropdownOpen[key])}" aria-label="Search ${esc(label.toLowerCase())}"${disabled?" disabled":""}><div class="item-results" id="${id}-results" data-picker-results="${key}" role="listbox" hidden></div></div>${previewTitle?renderPickerPreview(previewStats,previewTitle,previewAtlanteanKey,previewEmptyText,key,Boolean(selectedValue)):""}</div>`;
 }
 function renderPickerResults(slotId,kind,index=""){
   const key=pickerKey(slotId,kind,index);
@@ -733,7 +740,7 @@ function renderPickerResults(slotId,kind,index=""){
     ?build.gear[slotId]?.sockets?.[Number(index)]?.[kind]||""
     :build.gear[slotId]?.[kind]||"";
   const controls=[];
-  if(kind!=="dragonColor"&&!search&&!statFilters.size&&current)controls.push(`<button id="${key.replace(/:/g,"-")}-clear" class="item-result item-result-clear" type="button" role="option" aria-selected="false" data-select-picker data-picker-slot="${slotId}" data-picker-kind="${kind}" data-picker-index="${index}" data-picker-value="">× <span>Clear selection</span></button>`);
+  if(kind!=="dragonColor"&&!search&&current)controls.push(`<button id="${key.replace(/:/g,"-")}-clear" class="item-result item-result-clear" type="button" role="option" aria-selected="false" data-select-picker data-picker-slot="${slotId}" data-picker-kind="${kind}" data-picker-index="${index}" data-picker-value="">× <span>Clear selection</span></button>`);
   for(const [candidateIndex,candidate]of candidates.entries()){
     const selected=current===candidate.value;
     const note=candidate.preview.atlanteanKey?`<span class="option-result-note">Adds ${esc(STAT_LABELS[candidate.preview.atlanteanKey]||candidate.preview.atlanteanKey)}</span>`:"";
@@ -744,7 +751,7 @@ function renderPickerResults(slotId,kind,index=""){
   const count=document.querySelector(`[data-picker-count="${key}"]`);
   const total=getPickerBaseChoices(slotId,kind,index).filter(choice=>{
     const preview=getPickerPreview(slotId,kind,index,choice.value);
-    return [...statFilters].every(stat=>safeNumber(preview.stats[stat])!==0);
+    return !pickerUsesStatFilters(kind)||[...statFilters].every(stat=>safeNumber(preview.stats[stat])!==0);
   }).length;
   if(count)count.textContent=`${getPickerCandidates(slotId,kind,index,search).length} / ${total}`;
   const input=document.querySelector(`[data-picker-search="${key}"]`);
@@ -761,10 +768,6 @@ function renderGearPickers(slotId){
   renderPickerResults(slotId,"enchant");
   if(ITEMS.some(entry=>entry.name===gear.name))renderPickerResults(slotId,"modifier");
   if(ITEMS.find(entry=>entry.name===gear.name)?.dragonGear)renderPickerResults(slotId,"dragonColor");
-  for(const [index]of (gear.sockets||[]).entries()){
-    renderPickerResults(slotId,"gem",index);
-    renderPickerResults(slotId,"fusionGem",index);
-  }
 }
 function refreshPickerPreviews(slotId){
   const gear=build.gear[slotId];
@@ -798,51 +801,71 @@ function getAvailableItemsForSlot(slot){
     &&(!item.magicKey||build.magics.includes(item.magicKey))
     &&(!item.fightingStyle||build.fightingStyles.includes(item.fightingStyle)));
 }
-function getFilteredItems(slot,query=""){
+function getFilteredItems(slot,query="",category="all"){
   const search=query.trim().toLowerCase();
   return getAvailableItemsForSlot(slot).filter(item=>{
     const arcsphereAlias=item.magicPiece?.trim()==="Arcanium Arcsphere"
       ?item.name.replace("Arcsphere","Archsphere").toLowerCase():"";
     const stats=getItemStatsForPlayer(item,build.level);
     return !accessoryConflictForSlot(slot.id,item)
+      &&(!ACCESSORY_SLOT_IDS.includes(slot.id)||category==="all"||item.category===category)
       &&[...statFilters].every(key=>safeNumber(stats[key])!==0)
       &&(!search||item.name.toLowerCase().includes(search)||arcsphereAlias.includes(search));
   }).sort((a,b)=>a.name.localeCompare(b.name,undefined,{sensitivity:"base"}));
 }
-function renderItemResults(slotId){
+function renderGearSelectionOptions(){
+  const slot=SLOTS.find(entry=>entry.id===activeGearSlotId);
+  const list=document.getElementById("gear-picker-options");
+  const count=document.getElementById("gear-picker-count");
+  if(!slot||!list||!count)return;
+  const accessoryFilter=document.getElementById("gear-category-filter");
+  const isAccessorySlot=ACCESSORY_SLOT_IDS.includes(slot.id);
+  accessoryFilter.hidden=!isAccessorySlot;
+  accessoryFilter.querySelectorAll("[data-filter-gear-category]").forEach(button=>{
+    const selected=button.dataset.filterGearCategory===activeGearCategory;
+    button.classList.toggle("is-selected",selected);
+    button.setAttribute("aria-pressed",String(selected));
+  });
+  const items=getFilteredItems(slot,gearPickerSearch,activeGearCategory);
+  const selectedName=build.gear[slot.id]?.name;
+  list.innerHTML=items.map((item,index)=>{
+    const stats=Object.entries(getItemStatsForPlayer(item,build.level)).filter(([key])=>STAT_KEYS.includes(key)).map(([key,value])=>renderStatValue(key,value)).join(" ");
+    const selected=selectedName===item.name;
+    const icon=ITEM_ICON_SLOT_IDS.includes(slot.id)?renderGearItemIcon(item,"item-result-icon"):"";
+    return `<button id="gear-picker-item-${index}" class="gear-picker-option${selected?" is-selected":""}" type="button" role="option" aria-selected="${selected}" data-select-gear data-item-name="${esc(item.name)}">${icon}<span class="gear-picker-option-main"><span class="item-result-name">${esc(item.name)}${selected?'<span class="equipped-tag">EQUIPPED</span>':""}</span><span class="item-result-stats">${stats||"No base stats listed"}</span></span><span class="item-result-type">${esc(item.type)}</span></button>`;
+  }).join("")||`<p class="gem-combination-empty">No items match your search or stat filters.</p>`;
+  const categoryItems=getAvailableItemsForSlot(slot).filter(item=>!isAccessorySlot||activeGearCategory==="all"||item.category===activeGearCategory);
+  count.textContent=`${items.length} / ${categoryItems.length} ITEMS`;
+  document.getElementById("clear-gear-selection").disabled=!selectedName;
+}
+function openGearPicker(slotId){
   const slot=SLOTS.find(entry=>entry.id===slotId);
   if(!slot)return;
-  const results=document.querySelector(`[data-item-results="${slotId}"]`);
-  const count=document.querySelector(`[data-item-count="${slotId}"]`);
-  if(!results)return;
-  const filtered=getFilteredItems(slot,itemSearches[slotId]);
-  const controls=[];
-  if(!itemSearches[slotId]&&!statFilters.size&&build.gear[slotId])controls.push(`<button class="item-result item-result-clear" type="button" role="option" aria-selected="false" data-select-item="${slotId}" data-item-name="">× <span>Clear ${slot.name}</span></button>`);
-  for(const [index,item] of filtered.entries()){
-    const stats=Object.entries(getItemStatsForPlayer(item,build.level)).filter(([key])=>STAT_KEYS.includes(key)).map(([key,value])=>renderStatValue(key,value)).join(" ");
-    const selected=build.gear[slotId]?.name===item.name;
-    controls.push(`<button id="${slotId}-result-${index}" class="item-result${selected?" is-equipped":""}" type="button" role="option" aria-selected="${selected}" data-select-item="${slotId}" data-item-name="${esc(item.name)}"><span class="item-result-main"><span class="item-result-name">${esc(item.name)}${selected?'<span class="equipped-tag">EQUIPPED</span>':""}</span><span class="item-result-stats">${stats||"No base stats listed"}</span></span><span class="item-result-type">${esc(item.type)}</span></button>`);
-  }
-  results.innerHTML=controls.length?controls.join(""):`<div class="item-no-results">${itemSearches[slotId]?"No matching items.":"No items match the selected stat filters."}</div>`;
-  results.hidden=!itemDropdownOpen[slotId];
-  if(count)count.textContent=`${filtered.length} / ${getAvailableItemsForSlot(slot).length}`;
-  const search=document.querySelector(`[data-item-search="${slotId}"]`);
-  search?.setAttribute("aria-expanded",String(itemDropdownOpen[slotId]));
-  const active=Math.min(activeItemIndexes[slotId],filtered.length-1);
-  results.querySelectorAll(".item-result").forEach((button,index)=>button.classList.toggle("is-active",index===active));
-  if(itemDropdownOpen[slotId]&&active>=0)search?.setAttribute("aria-activedescendant",`${slotId}-result-${active}`);
-  else search?.removeAttribute("aria-activedescendant");
+  activeGearSlotId=slotId;
+  gearPickerSearch="";
+  document.getElementById("gear-picker-search").value="";
+  document.getElementById("gear-picker-title").textContent=`Choose ${slot.name}`;
+  document.getElementById("gear-picker-subtitle").textContent=`${slot.label} · Select an item to see its stats.`;
+  renderGearSelectionOptions();
+  const dialog=document.getElementById("gear-picker-dialog");
+  if(!dialog.open)dialog.showModal();
+  document.getElementById("gear-picker-search").focus();
+}
+function renderGearItemIcon(item,className){
+  const src=window.BUILDER_GEAR_ICON_MAP?.[item?.name]?.src||"assets/gear-icons/placeholder.svg";
+  return `<img class="${className}" src="${esc(src)}" alt="" loading="lazy" onerror="this.onerror=null;this.src='assets/gear-icons/placeholder.svg'">`;
 }
 function renderCard(slot){
   const gear=build.gear[slot.id];
   const selectedItem=ITEMS.find(item=>item.name===gear?.name);
   const slotItems=getAvailableItemsForSlot(slot);
-  const searchPlaceholder=gear?.name||"Search items…";
-  const itemPicker=`<div class="field item-picker${gear?.name?" has-selection":""}"><label for="${slot.id}-search"><span>ITEM</span>${gear?`<span class="item-picker-level">Lvl: ${Math.max(1,safeNumber(gear.level))}</span>`:""}<span class="item-count" data-item-count="${slot.id}">${slotItems.length} ITEMS</span></label><div class="item-search-wrap"><input id="${slot.id}-search" class="item-search" type="search" data-item-search="${slot.id}" value="${esc(itemSearches[slot.id])}" placeholder="${esc(searchPlaceholder)}" autocomplete="off" role="combobox" aria-autocomplete="list" aria-controls="${slot.id}-results" aria-expanded="${itemDropdownOpen[slot.id]}" aria-label="Search ${esc(slot.name)} items"><span class="search-icon" aria-hidden="true">⌕</span><div class="item-results" id="${slot.id}-results" data-item-results="${slot.id}" role="listbox" hidden></div></div></div>`;
+  const selectedItemIcon=gear?.name&&ITEM_ICON_SLOT_IDS.includes(slot.id)&&selectedItem?renderGearItemIcon(selectedItem,"item-picker-icon"):"";
+  const screenshotItemIcon=gear?.name&&ITEM_ICON_SLOT_IDS.includes(slot.id)&&selectedItem?renderGearItemIcon(selectedItem,"gear-overview-icon"):"";
+  const itemPicker=`<div class="field item-picker${gear?.name?" has-selection":""}"><label for="${slot.id}-item-picker"><span>ITEM</span>${gear?`<span class="item-picker-level">Lvl: ${Math.max(1,safeNumber(gear.level))}</span>`:""}<span class="item-count">${slotItems.length} ITEMS</span></label><button id="${slot.id}-item-picker" class="item-picker-trigger" type="button" data-open-gear-picker data-gear-slot="${slot.id}" aria-haspopup="dialog" aria-controls="gear-picker-dialog" aria-label="Choose ${esc(slot.name)} item">${selectedItemIcon}<span class="item-picker-trigger-label">${esc(gear?.name||"Choose an item…")}</span><span class="item-picker-trigger-action">${gear?.name?"Change":"Choose"}</span></button></div>`;
   const clearButton=`<button class="clear-slot-button" type="button" data-clear-slot="${slot.id}"${gear?"":" disabled"} aria-label="Clear ${esc(slot.name)}">Clear</button>`;
   const itemNameHeader=gear?`<h3 class="gear-item-name">${esc(gear.name||"Unnamed gear")}</h3><span class="item-type">${esc(selectedItem?.type||"Custom item")}</span>`:`<h3 class="gear-item-name">Empty slot</h3>`;
-  const cardHeader=`<div class="gear-card-header"><div class="gear-card-heading"><span class="slot-label">${slot.label}</span>${itemNameHeader}${itemPicker}</div>${clearButton}</div>`;
-  if(!gear) return `<article class="gear-card">${cardHeader}<div class="gear-snapshot"><span>No item selected</span></div></article>`;
+  const cardHeader=`<div class="gear-card-header"><div class="gear-card-heading"><div class="gear-card-heading-main">${screenshotItemIcon}<div class="gear-card-title"><span class="slot-label">${slot.label}</span>${itemNameHeader}</div></div>${itemPicker}</div>${clearButton}</div>`;
+  if(!gear) return `<article class="gear-card is-empty">${cardHeader}<div class="gear-snapshot"><span>No item selected</span></div></article>`;
   const jewelSlots=(selectedItem?.jewelSlots||0)+(gear.modifier==="gilded"?1:0);
   const sockets=Array.from({length:jewelSlots},(_,i)=>renderSocket(slot.id,i,gear.sockets?.[i])).join("");
   const socketSection=sockets?`<div class="socket-block"><div class="socket-block-head"><span class="socket-title">JEWEL SOCKETS</span><span class="socket-subtitle">${jewelSlots} SOCKETS</span></div>${sockets}</div>`:"";
@@ -866,9 +889,77 @@ function renderCard(slot){
 }
 function renderSocket(slotId,index,socket={}){
   const combinedStats=socket.gem?getCombinedGemStats(socket):{};
-  return `<div class="socket">${renderPickerInput({slotId,kind:"gem",index,label:"PRIMARY GEM",placeholder:"Search…",selectedValue:socket.gem||"",previewStats:combinedStats,previewTitle:socket.gem?"SOCKET TOTAL":"",previewEmptyText:"Select a gem to preview."})}${renderPickerInput({slotId,kind:"fusionGem",index,label:"COMBINED GEM",placeholder:"Search…",selectedValue:socket.fusionGem||"",disabled:!socket.gem})}</div>`;
+  const firstGem=GEMS.find(gem=>gem.id===socket.gem);
+  const secondGem=GEMS.find(gem=>gem.id===socket.fusionGem);
+  const selection=firstGem&&secondGem?`${firstGem.name} + ${secondGem.name}`:firstGem?`${firstGem.name} + Choose a gem`:"Choose two gems";
+  const preview=renderPickerPreview(combinedStats,"COMBINATION TOTAL","","Select two gems.",pickerKey(slotId,"gem",index),Boolean(socket.gem));
+  return `<div class="socket"><div class="gem-combination-field"><button class="gem-combination-trigger" type="button" data-open-gem-combinations data-gem-slot="${slotId}" data-gem-index="${index}" aria-haspopup="dialog"><span>${esc(selection)}</span><span class="gem-combination-trigger-action">${firstGem?"Change":"Select"}</span></button>${preview}</div></div>`;
+}
+function getGemCombinations(){
+  const combinations=[];
+  const alphabetizedGems=[...GEMS].sort((first,second)=>first.name.localeCompare(second.name,undefined,{sensitivity:"base"}));
+  for(let firstIndex=0;firstIndex<alphabetizedGems.length;firstIndex++){
+    for(let secondIndex=firstIndex;secondIndex<alphabetizedGems.length;secondIndex++){
+      const first=alphabetizedGems[firstIndex];
+      const second=alphabetizedGems[secondIndex];
+      const stats=getCombinedGemStats({gem:first.id,fusionGem:second.id});
+      if([...statFilters].some(key=>safeNumber(stats[key])===0))continue;
+      combinations.push({first,second,stats,same:firstIndex===secondIndex});
+    }
+  }
+  return combinations;
+}
+function renderGemCombinationOptions(){
+  const dialog=document.getElementById("gem-combination-dialog");
+  const list=document.getElementById("gem-combination-options");
+  const count=document.getElementById("gem-combination-count");
+  if(!dialog||!list||!count)return;
+  const query=document.getElementById("gem-combination-search").value.trim().toLowerCase();
+  const combinations=getGemCombinations().filter(({first,second})=>{
+    const labels=[first.name,...(first.variants||[]),second.name,...(second.variants||[])].join(" ").toLowerCase();
+    return !query||labels.includes(query);
+  });
+  count.textContent=`${combinations.length} combinations`;
+  const current=activeGemTarget&&build.gear[activeGemTarget.slotId]?.sockets?.[activeGemTarget.index];
+  list.innerHTML=[["same","Same gem twice",combinations.filter(entry=>entry.same)],["mixed","Different gems",combinations.filter(entry=>!entry.same)]]
+    .filter(([, ,entries])=>entries.length)
+    .map(([group,label,entries])=>`<section class="gem-combination-group" aria-label="${label}"><h3>${label}</h3><div>${entries.map(({first,second,stats})=>{
+      const selected=current&&(current.gem===first.id&&current.fusionGem===second.id||current.gem===second.id&&current.fusionGem===first.id);
+      const name=first.id===second.id?`${first.name} × 2`:`${first.name} + ${second.name}`;
+      return `<button class="gem-combination-option${selected?" is-selected":""}" type="button" data-select-gem-combination data-primary-gem="${first.id}" data-secondary-gem="${second.id}" aria-pressed="${Boolean(selected)}"><span class="gem-combination-name">${esc(name)}</span><span class="gem-combination-stats">${formatGearStats(stats)}</span></button>`;
+    }).join("")}</div></section>`).join("")||`<p class="gem-combination-empty">No combinations match your search or stat filters.</p>`;
+  document.getElementById("clear-gem-combination").disabled=!current?.gem&&!current?.fusionGem;
+}
+function hasJewelSocket(slotId,index){
+  const gear=build.gear[slotId];
+  const item=ITEMS.find(entry=>entry.name===gear?.name);
+  const socketCount=(item?.jewelSlots||0)+(gear?.modifier==="gilded"?1:0);
+  return Boolean(gear&&Number.isInteger(index)&&index>=0&&index<socketCount);
+}
+function openGemCombinationDialog(slotId,index){
+  if(!hasJewelSocket(slotId,index))return;
+  activeGemTarget={slotId,index};
+  document.getElementById("gem-combination-search").value="";
+  renderGemCombinationOptions();
+  const dialog=document.getElementById("gem-combination-dialog");
+  if(!dialog.open)dialog.showModal();
+  document.getElementById("gem-combination-search").focus();
+}
+function selectGemCombination(slotId,index,firstGem,secondGem){
+  if(!GEMS.some(gem=>gem.id===firstGem)||!GEMS.some(gem=>gem.id===secondGem))return;
+  if(!hasJewelSocket(slotId,index))return;
+  setSocketValue(slotId,index,"gem",firstGem);
+  setSocketValue(slotId,index,"fusionGem",secondGem);
+  resetPickerState(pickerKey(slotId,"gem",index));
+  resetPickerState(pickerKey(slotId,"fusionGem",index));
+  render();persist();
 }
 function render(){
+  const screenshotTitle=document.getElementById("screenshot-build-title");
+  screenshotTitle.textContent=String(build.name||"").trim()||"Loadout Overview";
+  const ritual=DRAGONBLOOD_RITUALS.find(entry=>entry.tier===Number(build.dragonbloodTier))||DRAGONBLOOD_RITUALS[0];
+  document.getElementById("screenshot-ritual-name").textContent=ritual.label;
+  document.getElementById("screenshot-empty-state").hidden=Object.values(build.gear).some(Boolean);
   document.getElementById("build-name").value=build.name||"";
   document.getElementById("player-level").value=build.level||175;
   document.getElementById("stat-build").value=STAT_BUILDS.some(([id])=>id===build.statBuild)?build.statBuild:"";
@@ -877,9 +968,10 @@ function render(){
   renderFightingStyleSelectors();
   document.getElementById("dragonblood-ritual").innerHTML=options(DRAGONBLOOD_RITUALS.map(ritual=>[String(ritual.tier),ritual.label]),String(build.dragonbloodTier||0));
   document.getElementById("dragonblood-ritual").value=String(build.dragonbloodTier||0);
-  document.getElementById("stat-filter-list").innerHTML=renderStatFilters();
+  document.querySelectorAll("[data-stat-filter-list]").forEach(container=>container.innerHTML=renderStatFilters());
+  syncStatFilterCheckboxes();
   document.getElementById("gear-grid").innerHTML=SLOTS.map(renderCard).join("");
-  for(const slot of SLOTS){renderItemResults(slot.id);renderGearPickers(slot.id);}
+  for(const slot of SLOTS)renderGearPickers(slot.id);
   updateSummary();
 }
 function updateStatBuildDescription(){
@@ -908,9 +1000,6 @@ function renderFightingStyleSelectors(){
     return `<label class="magic-select-field"><span>${label}</span><select data-fighting-style-index="${index}" aria-label="${label}"${disabled?" disabled":""}>${options(optionsHtml,build.fightingStyles[index]||"")}</select></label>`;
   }).join("");
 }
-function updateSlotItems(slotId){
-  renderItemResults(slotId);
-}
 function selectItem(slotId,itemName){
   const previous=build.gear[slotId];
   const item=ITEMS.find(entry=>entry.name===itemName);
@@ -930,18 +1019,14 @@ function selectItem(slotId,itemName){
     nextGear.sockets=(previous?.sockets||[]).slice(0,jewelSlots);
     build.gear[slotId]=nextGear;
   }
-  itemSearches[slotId]="";
-  itemDropdownOpen[slotId]=false;
-  activeItemIndexes[slotId]=0;
+  gearPickerSearch="";
   resetSlotPickerState(slotId);
   render();persist();
 }
 function clearSlot(slotId){
   if(!SLOTS.some(slot=>slot.id===slotId))return;
   build.gear[slotId]=null;
-  itemSearches[slotId]="";
-  itemDropdownOpen[slotId]=false;
-  activeItemIndexes[slotId]=0;
+  gearPickerSearch="";
   resetSlotPickerState(slotId);
   render();persist();
 }
@@ -990,9 +1075,11 @@ function updateSummary(){
   const statRows=order.filter(key=>Math.abs(total[key])>1e-9).map(key=>{
     const percentage=getSubstatEffectPercentage(key,total[key],level);
     const effect=percentage===null?'<small class="stat-percent stat-percent-empty" aria-hidden="true"></small>':`<small class="stat-percent" title="Estimated effect at level ${level}">${percentage>0?"+":""}${percentage.toFixed(1)}%</small>`;
-    return `<div class="total-stat${key==="power"||key==="defense"?" primary":""}"><span class="stat-name">${renderStatIcon(key)}</span><b>${formatStat(total[key])}</b>${effect}</div>`;
+    return `<div class="total-stat${key==="power"||key==="defense"?" primary":""}"><span class="stat-name">${renderStatIcon(key,{decorative:true})}<span class="stat-label">${esc(STAT_LABELS[key]||key)}</span></span><b>${formatStat(total[key])}</b>${effect}</div>`;
   }).join("");
-  document.getElementById("stat-list").innerHTML=`<div class="stat-total-heading"><span>Stat</span><span>Amount</span><span>Effect</span></div>${statRows}`;
+  document.getElementById("stat-list").innerHTML=statRows
+    ?`<div class="stat-total-heading"><span>Stat</span><span>Amount</span><span>Effect</span></div>${statRows}`
+    :`<p class="stat-empty-state">Equip gear to see your stat totals.</p>`;
   const baseHealth=Math.round(1000+(level-1)*3.83);
   const ritual=DRAGONBLOOD_RITUALS.find(entry=>entry.tier===Number(build.dragonbloodTier))||DRAGONBLOOD_RITUALS[0];
   const ritualHealth=Math.round(baseHealth*ritual.healthMultiplier);
@@ -1043,12 +1130,7 @@ function selectPickerOption(slotId,kind,index,value){
   render();persist();
 }
 document.getElementById("gear-grid").addEventListener("focusin",event=>{
-  if(event.target.matches("[data-item-search]")){
-    const slotId=event.target.dataset.itemSearch;
-    itemDropdownOpen[slotId]=true;
-    activeItemIndexes[slotId]=0;
-    renderItemResults(slotId);
-  }else if(event.target.matches("[data-picker-search]")){
+  if(event.target.matches("[data-picker-search]")){
     const key=event.target.dataset.pickerSearch;
     pickerDropdownOpen[key]=true;
     activePickerIndexes[key]=0;
@@ -1056,13 +1138,6 @@ document.getElementById("gear-grid").addEventListener("focusin",event=>{
   }
 });
 document.getElementById("gear-grid").addEventListener("input",event=>{
-  if(event.target.matches("[data-item-search]")){
-    itemSearches[event.target.dataset.itemSearch]=event.target.value;
-    itemDropdownOpen[event.target.dataset.itemSearch]=true;
-    activeItemIndexes[event.target.dataset.itemSearch]=0;
-    updateSlotItems(event.target.dataset.itemSearch);
-    return;
-  }
   if(event.target.matches("[data-picker-search]")){
     const key=event.target.dataset.pickerSearch;
     pickerSearches[key]=event.target.value;
@@ -1083,7 +1158,7 @@ document.getElementById("gear-grid").addEventListener("keydown",event=>{
     const current=kind==="gem"||kind==="fusionGem"
       ?build.gear[slotId]?.sockets?.[Number(index)]?.[kind]||""
       :build.gear[slotId]?.[kind]||"";
-    const hasClear=kind!=="dragonColor"&&!search&&!statFilters.size&&Boolean(current);
+    const hasClear=kind!=="dragonColor"&&!search&&Boolean(current);
     const candidates=getPickerCandidates(slotId,kind,index,search);
     const count=candidates.length+(hasClear?1:0);
     if(event.key==="ArrowDown"||event.key==="ArrowUp"){
@@ -1102,35 +1177,91 @@ document.getElementById("gear-grid").addEventListener("keydown",event=>{
     }
     return;
   }
-  if(!input.matches("[data-item-search]"))return;
-  const slotId=input.dataset.itemSearch;
-  const filtered=getFilteredItems(SLOTS.find(slot=>slot.id===slotId),itemSearches[slotId]);
-  if(event.key==="ArrowDown"||event.key==="ArrowUp"){
-    event.preventDefault();
-    itemDropdownOpen[slotId]=true;
-    if(filtered.length)activeItemIndexes[slotId]=(activeItemIndexes[slotId]+(event.key==="ArrowDown"?1:-1)+filtered.length)%filtered.length;
-    renderItemResults(slotId);
-  }else if(event.key==="Enter"&&itemDropdownOpen[slotId]){
-    event.preventDefault();
-    if(filtered.length)selectItem(slotId,filtered[activeItemIndexes[slotId]]?.name||"");
-    else if(!itemSearches[slotId])selectItem(slotId,"");
-  }else if(event.key==="Escape"&&itemDropdownOpen[slotId]){
-    itemDropdownOpen[slotId]=false;
-    renderItemResults(slotId);
-  }
 });
 document.getElementById("gear-grid").addEventListener("click",event=>{
   const clearButton=event.target.closest("[data-clear-slot]");
   if(clearButton&&!clearButton.disabled){clearSlot(clearButton.dataset.clearSlot);return;}
+  const gearTrigger=event.target.closest("[data-open-gear-picker]");
+  if(gearTrigger){openGearPicker(gearTrigger.dataset.gearSlot);return;}
+  const gemTrigger=event.target.closest("[data-open-gem-combinations]");
+  if(gemTrigger){openGemCombinationDialog(gemTrigger.dataset.gemSlot,Number(gemTrigger.dataset.gemIndex));return;}
   const pickerResult=event.target.closest("[data-select-picker]");
   if(pickerResult){selectPickerOption(pickerResult.dataset.pickerSlot,pickerResult.dataset.pickerKind,pickerResult.dataset.pickerIndex,pickerResult.dataset.pickerValue);return;}
-  const result=event.target.closest("[data-select-item]");
-  if(result){selectItem(result.dataset.selectItem,result.dataset.itemName);return;}
 });
+const gearPickerDialog=document.getElementById("gear-picker-dialog");
+gearPickerDialog.addEventListener("input",event=>{
+  if(event.target.id==="gear-picker-search"){
+    gearPickerSearch=event.target.value;
+    renderGearSelectionOptions();
+  }
+});
+gearPickerDialog.addEventListener("keydown",event=>{
+  if(event.key==="Escape"){
+    event.preventDefault();
+    gearPickerDialog.close();
+  }
+});
+gearPickerDialog.addEventListener("click",event=>{
+  if(event.target===gearPickerDialog||event.target.closest("[data-close-gear-picker]")){
+    gearPickerDialog.close();
+    return;
+  }
+  const categoryFilter=event.target.closest("[data-filter-gear-category]");
+  if(categoryFilter){
+    activeGearCategory=categoryFilter.dataset.filterGearCategory;
+    renderGearSelectionOptions();
+    return;
+  }
+  if(event.target.closest("#clear-gear-selection")&&activeGearSlotId){
+    const slotId=activeGearSlotId;
+    gearPickerDialog.close();
+    clearSlot(slotId);
+    return;
+  }
+  const option=event.target.closest("[data-select-gear]");
+  if(option&&activeGearSlotId){
+    const slotId=activeGearSlotId;
+    const itemName=option.dataset.itemName;
+    gearPickerDialog.close();
+    selectItem(slotId,itemName);
+  }
+});
+gearPickerDialog.addEventListener("close",()=>{activeGearSlotId=null;});
+const gemCombinationDialog=document.getElementById("gem-combination-dialog");
+gemCombinationDialog.addEventListener("input",event=>{
+  if(event.target.id==="gem-combination-search")renderGemCombinationOptions();
+});
+gemCombinationDialog.addEventListener("click",event=>{
+  if(event.target===gemCombinationDialog||event.target.closest("[data-close-gem-combination]")){
+    gemCombinationDialog.close();
+    return;
+  }
+  const pair=event.target.closest("[data-select-gem-combination]");
+  if(pair&&activeGemTarget){
+    const target=activeGemTarget;
+    gemCombinationDialog.close();
+    selectGemCombination(target.slotId,target.index,pair.dataset.primaryGem,pair.dataset.secondaryGem);
+    return;
+  }
+  if(event.target.closest("#clear-gem-combination")&&activeGemTarget){
+    const target=activeGemTarget;
+    const socket=build.gear[target.slotId]?.sockets?.[target.index];
+    if(socket){socket.gem="";socket.fusionGem="";}
+    gemCombinationDialog.close();
+    resetPickerState(pickerKey(target.slotId,"gem",target.index));
+    resetPickerState(pickerKey(target.slotId,"fusionGem",target.index));
+    render();persist();
+  }
+});
+gemCombinationDialog.addEventListener("close",()=>{activeGemTarget=null;});
 document.addEventListener("click",event=>{
-  const itemPicker=event.target.closest(".item-picker");
+  if(event.target.closest("[data-clear-filters]")){
+    statFilters.clear();
+    syncStatFilterCheckboxes();
+    if(gemCombinationDialog.open)renderGemCombinationOptions();
+    if(gearPickerDialog.open)renderGearSelectionOptions();
+  }
   const optionPicker=event.target.closest("[data-option-picker]");
-  if(!itemPicker)for(const slot of SLOTS)if(itemDropdownOpen[slot.id]){itemDropdownOpen[slot.id]=false;renderItemResults(slot.id);}
   for(const key of Object.keys(pickerDropdownOpen)){
     if(!pickerDropdownOpen[key]||optionPicker?.dataset.optionPicker===key)continue;
     pickerDropdownOpen[key]=false;
@@ -1138,24 +1269,26 @@ document.addEventListener("click",event=>{
     renderPickerResults(slotId,kind,index||"");
   }
 });
-document.getElementById("stat-filter-list").addEventListener("change",event=>{
+document.addEventListener("change",event=>{
   const input=event.target.closest("[data-filter-stat]");
   if(!input)return;
   if(input.checked)statFilters.add(input.dataset.filterStat);else statFilters.delete(input.dataset.filterStat);
-  render();
-});
-document.getElementById("clear-filters").addEventListener("click",()=>{
-  statFilters.clear();
-  render();
+  syncStatFilterCheckboxes();
+  if(gemCombinationDialog.open)renderGemCombinationOptions();
+  if(gearPickerDialog.open)renderGearSelectionOptions();
 });
 document.getElementById("clear-all-gear").addEventListener("click",()=>{
   if(!Object.values(build.gear).some(Boolean))return;
   if(!confirm("Clear all equipped items, enchants, and jewels?"))return;
-  for(const slot of SLOTS){build.gear[slot.id]=null;itemSearches[slot.id]="";itemDropdownOpen[slot.id]=false;activeItemIndexes[slot.id]=0;resetSlotPickerState(slot.id);}
+  for(const slot of SLOTS){build.gear[slot.id]=null;resetSlotPickerState(slot.id);}
   render();persist();
   showToast("All equipment cleared.");
 });
-document.getElementById("build-name").addEventListener("input",event=>{build.name=event.target.value;persist();});
+document.getElementById("build-name").addEventListener("input",event=>{
+  build.name=event.target.value;
+  document.getElementById("screenshot-build-title").textContent=String(build.name||"").trim()||"Loadout Overview";
+  persist();
+});
 document.getElementById("save-named-build").addEventListener("click",saveNamedGearBuild);
 document.getElementById("saved-build-select").addEventListener("change",syncSavedGearBuildButtons);
 document.getElementById("load-named-build").addEventListener("click",()=>{
