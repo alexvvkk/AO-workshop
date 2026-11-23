@@ -867,6 +867,10 @@ window.BUILDER_GEAR_ICON_MAP = {
     "src": "assets/gear-icons/arcmancerrobes-409d2576.png",
     "source": "https://arcaneodyssey.miraheze.org/wiki/File:ArcmancerRobes.png"
   },
+  "Mantello of Ravenna's Fallen King": {
+    "src": "assets/gear-icons/mantello-of-ravennas-fallen-king.webp",
+    "source": "https://roblox-arcane-odyssey.fandom.com/wiki/File:MantelloOfRavennasFallenKing.png"
+  },
   "Metal Arcanium Armor": {
     "src": "assets/gear-icons/arcaniumarmor-af9b2f9d.png",
     "source": "https://arcaneodyssey.miraheze.org/wiki/File:ArcaniumArmor.png"
@@ -1062,6 +1066,10 @@ window.BUILDER_GEAR_ICON_MAP = {
   "Ravenna Fallen King Armor": {
     "src": "assets/gear-icons/ravennafallenkingarmor-afb22665.png",
     "source": "https://arcaneodyssey.miraheze.org/wiki/File:RavennaFallenKingArmor.png"
+  },
+  "Ravenna Fallen King Boots": {
+    "src": "assets/gear-icons/ravenna-fallen-king-boots.webp",
+    "source": "https://roblox-arcane-odyssey.fandom.com/wiki/File:Ravenna_Fallen_King_Boots.png"
   },
   "Ravenna Noble Armor": {
     "src": "assets/gear-icons/ravennanoblearmor-fb07d2b5.png",
@@ -1322,6 +1330,10 @@ window.BUILDER_GEAR_ICON_MAP = {
   "The Lost Coronet of Skyhall": {
     "src": "assets/gear-icons/the-lost-coronet-of-skyhall-ca63f24b.png",
     "source": "https://arcaneodyssey.miraheze.org/wiki/File:The_Lost_Coronet_of_Skyhall.png"
+  },
+  "The Lost Crown of Ravenna": {
+    "src": "assets/gear-icons/lost-crown-of-ravenna.webp",
+    "source": "https://roblox-arcane-odyssey.fandom.com/wiki/File:Calvus_Crown_New.png"
   },
   "Theurgist Cloak": {
     "src": "assets/gear-icons/theurgistcloak-3655a34b.png",

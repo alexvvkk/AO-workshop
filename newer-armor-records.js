@@ -1511,18 +1511,6 @@ window.BUILDER_NEW_ARMOR_DATA = [
   {
     "boss_drop": true,
     "jewels": 2,
-    "name": "Ravenna Fallen King Mantello",
-    "rarity": "Uncommon",
-    "stats": {
-      "power": 0.375,
-      "size": 0.225,
-      "range": 0.225
-    },
-    "type": "Accessory"
-  },
-  {
-    "boss_drop": true,
-    "jewels": 2,
     "name": "The Lost Crown of Ravenna",
     "rarity": "Uncommon",
     "stats": {
