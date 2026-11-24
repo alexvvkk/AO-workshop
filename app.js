@@ -1266,14 +1266,11 @@ function getAutoBuilderGearKey(gear){
 function yieldToAutoBuilder(){
   return new Promise(resolve=>setTimeout(resolve,0));
 }
-async function buildAutoGearSuggestions(targets,settings,onProgress=()=>{},isCancelled=()=>false){
+async function buildAutoGearSuggestions(targets,settings,isCancelled=()=>false){
   const gemPlans=getAutoBuilderGemPlans(targets,settings);
   const gemLayoutCache=new Map();
   const slotCandidates=SLOTS.map(()=>[]);
-  const candidateCheckCount=SLOTS.length*ITEMS.length;
-  let processedCandidateChecks=0;
   let lastYield=performance.now();
-  onProgress(0,"Preparing candidates");
   for(let slotIndex=0;slotIndex<SLOTS.length;slotIndex++){
     const slot=SLOTS[slotIndex];
     for(const item of ITEMS){
@@ -1282,16 +1279,13 @@ async function buildAutoGearSuggestions(targets,settings,onProgress=()=>{},isCan
           slotCandidates[slotIndex].push(candidate);
         }
       }
-      processedCandidateChecks++;
       if(performance.now()-lastYield>=40){
-        onProgress(15*processedCandidateChecks/candidateCheckCount,"Preparing candidates");
         await yieldToAutoBuilder();
         lastYield=performance.now();
         if(isCancelled())return [];
       }
     }
     slotCandidates[slotIndex].sort(compareAutoBuilderCandidates);
-    onProgress(15*(slotIndex+1)/SLOTS.length,"Preparing candidates");
   }
   if(isCancelled())return [];
   if(slotCandidates.some(candidates=>!candidates.length))return [];
@@ -1305,7 +1299,6 @@ async function buildAutoGearSuggestions(targets,settings,onProgress=()=>{},isCan
         for(const candidate of slotCandidates[futureSlot]){
           futureMaximum=Math.max(futureMaximum,safeNumber(candidate.stats[key]));
           if(performance.now()-lastYield>=40){
-            onProgress(15,"Preparing search bounds");
             await yieldToAutoBuilder();
             lastYield=performance.now();
             if(isCancelled())return [];
@@ -1328,9 +1321,6 @@ async function buildAutoGearSuggestions(targets,settings,onProgress=()=>{},isCan
       const state=beam[stateIndex];
       for(let candidateIndex=0;candidateIndex<slotCandidates[slotIndex].length;candidateIndex++){
         if(performance.now()-lastYield>=40){
-          const candidatesAtStart=Math.max(1,slotCandidates[slotIndex].length);
-          const progress=15+75*(slotIndex+(stateIndex+candidateIndex/candidatesAtStart)/statesAtStart)/SLOTS.length;
-          onProgress(progress,"Searching loadouts");
           await yieldToAutoBuilder();
           lastYield=performance.now();
           if(isCancelled())return [];
@@ -1356,15 +1346,12 @@ async function buildAutoGearSuggestions(targets,settings,onProgress=()=>{},isCan
         if(!previous||compareAutoBuilderSearchStates(next,previous)<0)bestByItems.set(key,next);
       }
       if(performance.now()-lastYield>=40){
-        const progress=15+75*(slotIndex+(stateIndex+1)/statesAtStart)/SLOTS.length;
-        onProgress(progress,"Searching loadouts");
         await yieldToAutoBuilder();
         lastYield=performance.now();
         if(isCancelled())return [];
       }
     }
     beam=[...bestByItems.values()].sort(compareAutoBuilderSearchStates).slice(0,AUTO_BUILDER_BEAM_WIDTH);
-    onProgress(15+75*(slotIndex+1)/SLOTS.length,"Searching loadouts");
     await yieldToAutoBuilder();
     if(isCancelled())return [];
   }
@@ -1381,7 +1368,6 @@ async function buildAutoGearSuggestions(targets,settings,onProgress=()=>{},isCan
   const refined=[];
   for(let index=0;index<refinementSeeds.length;index++){
     refined.push(refineAutoBuilderCandidate(refinementSeeds[index],slotCandidates,targets,settings));
-    onProgress(90+9*(index+1)/Math.max(1,refinementSeeds.length),"Refining best loadouts");
     await yieldToAutoBuilder();
     if(isCancelled())return [];
   }
@@ -1429,22 +1415,10 @@ function renderAutoBuilderResults(){
     return `<article class="auto-builder-result"><header><div><span class="auto-builder-result-label">${optionLabel}</span><h3>${formatEfficiencyPoints(result.efficiency)} EP</h3></div><button class="button button-accent" type="button" data-use-auto-build="${index}">Use this build</button></header><div class="auto-builder-total-stats">${totalStatText}</div><div class="auto-builder-items">${items}</div></article>`;
   }).join("");
 }
-function updateAutoBuilderProgress(percent,label){
-  const progress=document.getElementById("auto-builder-progress");
-  const value=Math.max(0,Math.min(100,Math.floor(percent)));
-  progress.hidden=false;
-  document.getElementById("auto-builder-progress-bar").value=value;
-  document.getElementById("auto-builder-progress-percent").textContent=`${value}%`;
-  document.getElementById("auto-builder-progress-label").textContent=label;
-}
-function hideAutoBuilderProgress(){
-  document.getElementById("auto-builder-progress").hidden=true;
-}
 function clearAutoBuilderResults(){
   autoBuilderRunId++;
   autoBuilderIsGenerating=false;
   document.getElementById("auto-builder-results").innerHTML="";
-  hideAutoBuilderProgress();
   document.getElementById("generate-auto-builds").disabled=!canRunAutoBuilder();
 }
 function runAutoBuilder(){
@@ -1466,29 +1440,17 @@ function runAutoBuilder(){
   autoBuilderIsGenerating=true;
   autoBuilderResults=[];
   button.disabled=true;
-  results.innerHTML="";
-  updateAutoBuilderProgress(0,"Preparing candidates");
+  results.innerHTML=`<p class="auto-builder-working" role="status">Finding the best builds…</p>`;
   setTimeout(async()=>{
     if(runId!==autoBuilderRunId)return;
     try{
-      autoBuilderResults=await buildAutoGearSuggestions(
-        targets,settings,
-        (percent,label)=>{
-          if(runId===autoBuilderRunId)updateAutoBuilderProgress(percent,label);
-        },
-        ()=>runId!==autoBuilderRunId
-      );
+      autoBuilderResults=await buildAutoGearSuggestions(targets,settings,()=>runId!==autoBuilderRunId);
       if(runId!==autoBuilderRunId)return;
       renderAutoBuilderResults();
-      updateAutoBuilderProgress(100,"Complete");
-      window.setTimeout(()=>{
-        if(runId===autoBuilderRunId)hideAutoBuilderProgress();
-      },700);
     }catch(error){
       if(runId!==autoBuilderRunId)return;
       console.error("Could not generate gear suggestions.",error);
       results.innerHTML=`<p class="auto-builder-empty">Could not generate loadouts. Please try again.</p>`;
-      hideAutoBuilderProgress();
     }finally{
       if(runId===autoBuilderRunId){
         autoBuilderIsGenerating=false;
