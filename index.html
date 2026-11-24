@@ -7,7 +7,7 @@
   <title>Arcane Odyssey · Gear Workshop</title>
   <link rel="icon" type="image/png" href="assets/everthel-4.2.png">
   <link rel="apple-touch-icon" href="assets/everthel-4.2.png">
-  <link rel="stylesheet" href="styles.css?v=auto-builder-simplified-controls-20261124">
+  <link rel="stylesheet" href="styles.css?v=auto-builder-progress-20261124">
   <script src="theme.js?v=theme-no-light-20261123" defer></script>
 </head>
 <body>
@@ -152,6 +152,11 @@
         </div>
         <button class="button button-accent auto-builder-generate" id="generate-auto-builds" type="button" disabled>Generate loadouts</button>
       </div>
+      <div class="auto-builder-progress" id="auto-builder-progress" hidden>
+        <progress id="auto-builder-progress-bar" max="100" value="0" aria-label="Auto Builder progress"></progress>
+        <span id="auto-builder-progress-percent">0%</span>
+        <span id="auto-builder-progress-label" aria-live="polite">Preparing candidates</span>
+      </div>
       <div class="auto-builder-results" id="auto-builder-results" aria-live="polite"></div>
     </div>
   </dialog>
@@ -220,6 +225,6 @@
   <script src="wiki-armor-records.js"></script>
   <script src="dragon-armor-records.js"></script>
   <script src="gear-icon-map.js?v=fallen-king-set-icons-20261123"></script>
-  <script src="app.js?v=auto-builder-results-persist-20261124"></script>
+  <script src="app.js?v=auto-builder-simple-progress-labels-20261124"></script>
 </body>
 </html>

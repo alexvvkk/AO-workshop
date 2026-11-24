@@ -1161,6 +1161,14 @@ html[data-theme="dark"] .planner-footer a{color:#d1d5d9}
 .auto-builder-level{display:flex;align-items:center;gap:8px;color:var(--muted);font:10px var(--mono);letter-spacing:.6px}
 .auto-builder-level input{width:76px;padding:7px;border:1px solid var(--border);border-radius:4px;background:var(--panel2);color:var(--text);text-align:center}
 .auto-builder-generate{justify-self:start}
+.auto-builder-progress{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;gap:6px 10px;padding:12px 20px 0}
+.auto-builder-progress[hidden]{display:none}
+.auto-builder-progress progress{grid-column:1/-1;width:100%;height:10px;appearance:none;border:0;border-radius:8px;background:var(--panel2);overflow:hidden}
+.auto-builder-progress progress::-webkit-progress-bar{border-radius:8px;background:var(--panel2)}
+.auto-builder-progress progress::-webkit-progress-value{border-radius:8px;background:var(--lime);transition:width .12s}
+.auto-builder-progress progress::-moz-progress-bar{border-radius:8px;background:var(--lime)}
+.auto-builder-progress-percent{grid-column:2;grid-row:2;color:var(--text);font:11px var(--mono);text-align:right}
+.auto-builder-progress-label{grid-column:1;grid-row:2;color:var(--muted);font-size:11px}
 .auto-builder-results{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,480px),1fr));gap:10px;overflow:auto;padding:14px 20px 20px}
 .auto-builder-empty{grid-column:1/-1;margin:0;padding:24px 12px;color:var(--muted);text-align:center;font-size:13px}
 .auto-builder-result{min-width:0;padding:12px;border:1px solid var(--border);border-radius:5px;background:var(--panel2)}
@@ -1183,4 +1191,5 @@ html[data-theme="dark"] .planner-footer a{color:#d1d5d9}
   .auto-builder-target{grid-template-columns:minmax(85px,115px) minmax(60px,1fr) 64px;gap:7px}
   .auto-builder-results{grid-template-columns:1fr;padding:10px 12px 14px}
   .auto-builder-settings{padding:12px}
+  .auto-builder-progress{padding:10px 12px 0}
 }

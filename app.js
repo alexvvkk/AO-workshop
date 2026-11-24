@@ -349,6 +349,8 @@ const statFilters = new Set();
 let activeGemTarget = null;
 let autoBuilderTargets = Object.fromEntries(AUTO_BUILDER_TARGET_STATS.map(key=>[key,0]));
 let autoBuilderResults = [];
+let autoBuilderRunId = 0;
+let autoBuilderIsGenerating = false;
 let saveTimer;
 let toastTimer;
 
@@ -965,7 +967,7 @@ function renderAutoBuilderTargets(){
     const disabled=matchWardingToInsanity&&key==="warding";
     return `<div class="auto-builder-target"><label class="auto-builder-target-label" for="auto-builder-target-${key}">${renderStatIcon(key,{decorative:true})}${esc(STAT_LABELS[key])}</label><input id="auto-builder-target-${key}" type="range" min="0" max="${maximum}" step="1" value="${value}" data-auto-target="${key}" aria-label="${esc(STAT_LABELS[key])} target"${disabled?" disabled":""}><input type="number" min="0" max="${maximum}" step="1" value="${value}" data-auto-target="${key}" aria-label="${esc(STAT_LABELS[key])} target amount"${disabled?" disabled":""}></div>`;
   }).join("");
-  document.getElementById("generate-auto-builds").disabled=!canRunAutoBuilder();
+  document.getElementById("generate-auto-builds").disabled=autoBuilderIsGenerating||!canRunAutoBuilder();
 }
 function getAutoBuilderScore(stats,targets,targetDivisor=1){
   return getAutoBuilderMinimumTargetRatio(stats,targets,targetDivisor);
@@ -1261,30 +1263,79 @@ function getAutoBuilderGearKey(gear){
     ]);
   }).join("|");
 }
-function buildAutoGearSuggestions(targets,settings){
+function yieldToAutoBuilder(){
+  return new Promise(resolve=>setTimeout(resolve,0));
+}
+async function buildAutoGearSuggestions(targets,settings,onProgress=()=>{},isCancelled=()=>false){
   const gemPlans=getAutoBuilderGemPlans(targets,settings);
   const gemLayoutCache=new Map();
-  const slotCandidates=SLOTS.map(slot=>ITEMS
-    .filter(item=>slot.categories.includes(item.category)&&canAutoBuildUseItem(item,settings))
-    .flatMap(item=>getAutoBuilderVariants(item,targets,settings,gemPlans,gemLayoutCache))
-    .sort(compareAutoBuilderCandidates));
+  const slotCandidates=SLOTS.map(()=>[]);
+  const candidateCheckCount=SLOTS.length*ITEMS.length;
+  let processedCandidateChecks=0;
+  let lastYield=performance.now();
+  onProgress(0,"Preparing candidates");
+  for(let slotIndex=0;slotIndex<SLOTS.length;slotIndex++){
+    const slot=SLOTS[slotIndex];
+    for(const item of ITEMS){
+      if(slot.categories.includes(item.category)&&canAutoBuildUseItem(item,settings)){
+        for(const candidate of getAutoBuilderVariants(item,targets,settings,gemPlans,gemLayoutCache)){
+          slotCandidates[slotIndex].push(candidate);
+        }
+      }
+      processedCandidateChecks++;
+      if(performance.now()-lastYield>=40){
+        onProgress(15*processedCandidateChecks/candidateCheckCount,"Preparing candidates");
+        await yieldToAutoBuilder();
+        lastYield=performance.now();
+        if(isCancelled())return [];
+      }
+    }
+    slotCandidates[slotIndex].sort(compareAutoBuilderCandidates);
+    onProgress(15*(slotIndex+1)/SLOTS.length,"Preparing candidates");
+  }
+  if(isCancelled())return [];
   if(slotCandidates.some(candidates=>!candidates.length))return [];
-  const remainingMaximums=SLOTS.map((_,slotIndex)=>{
+  const remainingMaximums=[];
+  lastYield=performance.now();
+  for(let slotIndex=0;slotIndex<SLOTS.length;slotIndex++){
     const maximums=Object.fromEntries(Object.keys(targets).map(key=>[key,0]));
     for(let futureSlot=slotIndex+1;futureSlot<SLOTS.length;futureSlot++){
       for(const key of Object.keys(targets)){
-        maximums[key]+=Math.max(0,...slotCandidates[futureSlot].map(candidate=>safeNumber(candidate.stats[key])));
+        let futureMaximum=0;
+        for(const candidate of slotCandidates[futureSlot]){
+          futureMaximum=Math.max(futureMaximum,safeNumber(candidate.stats[key]));
+          if(performance.now()-lastYield>=40){
+            onProgress(15,"Preparing search bounds");
+            await yieldToAutoBuilder();
+            lastYield=performance.now();
+            if(isCancelled())return [];
+          }
+        }
+        maximums[key]+=futureMaximum;
       }
     }
-    return maximums;
-  });
+    remainingMaximums.push(maximums);
+  }
+  if(isCancelled())return [];
 
   let beam=[{selected:[],gear:{},totals:Object.fromEntries(STAT_KEYS.map(key=>[key,0])),score:0}];
   for(let slotIndex=0;slotIndex<SLOTS.length;slotIndex++){
     const slot=SLOTS[slotIndex];
     const bestByItems=new Map();
-    for(const state of beam){
-      for(const candidate of slotCandidates[slotIndex]){
+    const statesAtStart=beam.length;
+    lastYield=performance.now();
+    for(let stateIndex=0;stateIndex<statesAtStart;stateIndex++){
+      const state=beam[stateIndex];
+      for(let candidateIndex=0;candidateIndex<slotCandidates[slotIndex].length;candidateIndex++){
+        if(performance.now()-lastYield>=40){
+          const candidatesAtStart=Math.max(1,slotCandidates[slotIndex].length);
+          const progress=15+75*(slotIndex+(stateIndex+candidateIndex/candidatesAtStart)/statesAtStart)/SLOTS.length;
+          onProgress(progress,"Searching loadouts");
+          await yieldToAutoBuilder();
+          lastYield=performance.now();
+          if(isCancelled())return [];
+        }
+        const candidate=slotCandidates[slotIndex][candidateIndex];
         if(slotIndex<3&&state.selected.slice(0,3).some(entry=>accessoryConflict(candidate.item,entry.item)))continue;
         const nextTotals={...state.totals};
         for(const key of STAT_KEYS)nextTotals[key]+=safeNumber(candidate.stats[key]);
@@ -1304,8 +1355,18 @@ function buildAutoGearSuggestions(targets,settings){
         const previous=bestByItems.get(key);
         if(!previous||compareAutoBuilderSearchStates(next,previous)<0)bestByItems.set(key,next);
       }
+      if(performance.now()-lastYield>=40){
+        const progress=15+75*(slotIndex+(stateIndex+1)/statesAtStart)/SLOTS.length;
+        onProgress(progress,"Searching loadouts");
+        await yieldToAutoBuilder();
+        lastYield=performance.now();
+        if(isCancelled())return [];
+      }
     }
     beam=[...bestByItems.values()].sort(compareAutoBuilderSearchStates).slice(0,AUTO_BUILDER_BEAM_WIDTH);
+    onProgress(15+75*(slotIndex+1)/SLOTS.length,"Searching loadouts");
+    await yieldToAutoBuilder();
+    if(isCancelled())return [];
   }
   beam.sort(compareAutoBuilderCandidates);
   const refinementSeeds=[];
@@ -1317,7 +1378,13 @@ function buildAutoGearSuggestions(targets,settings){
     refinementSeeds.push(candidate);
     if(refinementSeeds.length>=24)break;
   }
-  const refined=refinementSeeds.map(candidate=>refineAutoBuilderCandidate(candidate,slotCandidates,targets,settings));
+  const refined=[];
+  for(let index=0;index<refinementSeeds.length;index++){
+    refined.push(refineAutoBuilderCandidate(refinementSeeds[index],slotCandidates,targets,settings));
+    onProgress(90+9*(index+1)/Math.max(1,refinementSeeds.length),"Refining best loadouts");
+    await yieldToAutoBuilder();
+    if(isCancelled())return [];
+  }
   const currentLoadout=getAutoBuilderCurrentLoadoutCandidate(targets,settings);
   const candidates=[...beam,...refined];
   if(currentLoadout)candidates.push(currentLoadout);
@@ -1329,7 +1396,7 @@ function buildAutoGearSuggestions(targets,settings){
     if(seenGear.has(key))continue;
     seenGear.add(key);
     unique.push(candidate);
-    if(unique.length===5)break;
+    if(unique.length===10)break;
   }
   return unique.map(state=>({
     gear:state.gear,totals:state.totals,score:state.score,
@@ -1362,8 +1429,23 @@ function renderAutoBuilderResults(){
     return `<article class="auto-builder-result"><header><div><span class="auto-builder-result-label">${optionLabel}</span><h3>${formatEfficiencyPoints(result.efficiency)} EP</h3></div><button class="button button-accent" type="button" data-use-auto-build="${index}">Use this build</button></header><div class="auto-builder-total-stats">${totalStatText}</div><div class="auto-builder-items">${items}</div></article>`;
   }).join("");
 }
+function updateAutoBuilderProgress(percent,label){
+  const progress=document.getElementById("auto-builder-progress");
+  const value=Math.max(0,Math.min(100,Math.floor(percent)));
+  progress.hidden=false;
+  document.getElementById("auto-builder-progress-bar").value=value;
+  document.getElementById("auto-builder-progress-percent").textContent=`${value}%`;
+  document.getElementById("auto-builder-progress-label").textContent=label;
+}
+function hideAutoBuilderProgress(){
+  document.getElementById("auto-builder-progress").hidden=true;
+}
 function clearAutoBuilderResults(){
+  autoBuilderRunId++;
+  autoBuilderIsGenerating=false;
   document.getElementById("auto-builder-results").innerHTML="";
+  hideAutoBuilderProgress();
+  document.getElementById("generate-auto-builds").disabled=!canRunAutoBuilder();
 }
 function runAutoBuilder(){
   const button=document.getElementById("generate-auto-builds");
@@ -1373,23 +1455,45 @@ function runAutoBuilder(){
   const targets=getAutoBuilderTargets();
   const optimizeForEP=document.getElementById("auto-builder-optimize-ep").checked;
   if(!optimizeForEP&&!Object.keys(targets).length)return;
+  const runId=++autoBuilderRunId;
+  const settings={
+    level,sunken:document.getElementById("auto-builder-sunken").checked,
+    maxDrawback:safeNumber(document.getElementById("auto-builder-max-drawback").value),
+    maxInsanity:safeNumber(document.getElementById("auto-builder-max-insanity").value),
+    matchWardingToInsanity:document.getElementById("auto-builder-match-warding").checked,
+    optimizeForEP
+  };
+  autoBuilderIsGenerating=true;
+  autoBuilderResults=[];
   button.disabled=true;
-  results.innerHTML=`<p class="auto-builder-empty">Comparing gear, modifiers, enchants, and jewels…</p>`;
-  setTimeout(()=>{
+  results.innerHTML="";
+  updateAutoBuilderProgress(0,"Preparing candidates");
+  setTimeout(async()=>{
+    if(runId!==autoBuilderRunId)return;
     try{
-      autoBuilderResults=buildAutoGearSuggestions(targets,{
-        level,sunken:document.getElementById("auto-builder-sunken").checked,
-        maxDrawback:safeNumber(document.getElementById("auto-builder-max-drawback").value),
-        maxInsanity:safeNumber(document.getElementById("auto-builder-max-insanity").value),
-        matchWardingToInsanity:document.getElementById("auto-builder-match-warding").checked,
-        optimizeForEP
-      });
+      autoBuilderResults=await buildAutoGearSuggestions(
+        targets,settings,
+        (percent,label)=>{
+          if(runId===autoBuilderRunId)updateAutoBuilderProgress(percent,label);
+        },
+        ()=>runId!==autoBuilderRunId
+      );
+      if(runId!==autoBuilderRunId)return;
       renderAutoBuilderResults();
+      updateAutoBuilderProgress(100,"Complete");
+      window.setTimeout(()=>{
+        if(runId===autoBuilderRunId)hideAutoBuilderProgress();
+      },700);
     }catch(error){
+      if(runId!==autoBuilderRunId)return;
       console.error("Could not generate gear suggestions.",error);
       results.innerHTML=`<p class="auto-builder-empty">Could not generate loadouts. Please try again.</p>`;
+      hideAutoBuilderProgress();
     }finally{
-      button.disabled=!canRunAutoBuilder();
+      if(runId===autoBuilderRunId){
+        autoBuilderIsGenerating=false;
+        button.disabled=!canRunAutoBuilder();
+      }
     }
   },30);
 }
@@ -1959,7 +2063,7 @@ autoBuilderMaxInsanity.value=String(MAX_AUTO_BUILDER_INSANITY);
 document.getElementById("auto-builder-max-insanity-value").textContent=String(MAX_AUTO_BUILDER_INSANITY);
 renderAutoBuilderTargets();
 document.getElementById("open-auto-builder").addEventListener("click",()=>{
-  if(!autoBuilderResults.length){
+  if(!autoBuilderResults.length&&!autoBuilderIsGenerating){
     document.getElementById("auto-builder-level").value=build.level||175;
   }
   renderAutoBuilderTargets();
