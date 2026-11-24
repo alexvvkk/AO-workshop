@@ -1341,7 +1341,7 @@ function buildAutoGearSuggestions(targets,settings){
 function renderAutoBuilderResults(){
   const container=document.getElementById("auto-builder-results");
   if(!autoBuilderResults.length){
-    container.innerHTML=`<p class="auto-builder-empty">No complete loadouts fit these settings. Try raising the Drawback or Insanity caps, turning off Drawback exclusion, or checking your stat-build selections.</p>`;
+    container.innerHTML=`<p class="auto-builder-empty">No complete loadouts fit these settings. Try raising the Drawback or Insanity caps, or check your stat-build selections.</p>`;
     return;
   }
   container.innerHTML=autoBuilderResults.map((result,index)=>{
@@ -1362,7 +1362,7 @@ function renderAutoBuilderResults(){
     return `<article class="auto-builder-result"><header><div><span class="auto-builder-result-label">${optionLabel}</span><h3>${formatEfficiencyPoints(result.efficiency)} EP</h3></div><button class="button button-accent" type="button" data-use-auto-build="${index}">Use this build</button></header><div class="auto-builder-total-stats">${totalStatText}</div><div class="auto-builder-items">${items}</div></article>`;
   }).join("");
 }
-function renderAutoBuilderTargetPrompt(){
+function clearAutoBuilderResults(){
   document.getElementById("auto-builder-results").innerHTML="";
 }
 function runAutoBuilder(){
@@ -1959,9 +1959,10 @@ autoBuilderMaxInsanity.value=String(MAX_AUTO_BUILDER_INSANITY);
 document.getElementById("auto-builder-max-insanity-value").textContent=String(MAX_AUTO_BUILDER_INSANITY);
 renderAutoBuilderTargets();
 document.getElementById("open-auto-builder").addEventListener("click",()=>{
-  document.getElementById("auto-builder-level").value=build.level||175;
+  if(!autoBuilderResults.length){
+    document.getElementById("auto-builder-level").value=build.level||175;
+  }
   renderAutoBuilderTargets();
-  renderAutoBuilderTargetPrompt();
   autoBuilderDialog.showModal();
 });
 document.getElementById("auto-builder-targets").addEventListener("input",event=>{
@@ -1976,38 +1977,38 @@ document.getElementById("auto-builder-targets").addEventListener("input",event=>
   else if(control.value!==""&&rawTarget!==target)control.value=target;
   autoBuilderResults=[];
   document.getElementById("generate-auto-builds").disabled=!canRunAutoBuilder();
-  renderAutoBuilderTargetPrompt();
+  clearAutoBuilderResults();
 });
 document.getElementById("auto-builder-level").addEventListener("change",()=>{
   renderAutoBuilderTargets();
   autoBuilderResults=[];
-  renderAutoBuilderTargetPrompt();
+  clearAutoBuilderResults();
 });
 document.getElementById("auto-builder-sunken").addEventListener("change",()=>{
   renderAutoBuilderTargets();
   autoBuilderResults=[];
-  renderAutoBuilderTargetPrompt();
+  clearAutoBuilderResults();
 });
 autoBuilderMaxInsanity.addEventListener("input",()=>{
   document.getElementById("auto-builder-max-insanity-value").textContent=autoBuilderMaxInsanity.value;
   autoBuilderResults=[];
-  renderAutoBuilderTargetPrompt();
+  clearAutoBuilderResults();
 });
 autoBuilderMaxDrawback.addEventListener("input",()=>{
   document.getElementById("auto-builder-max-drawback-value").textContent=autoBuilderMaxDrawback.value;
   autoBuilderResults=[];
-  renderAutoBuilderTargetPrompt();
+  clearAutoBuilderResults();
 });
 document.getElementById("auto-builder-optimize-ep").addEventListener("change",()=>{
   renderAutoBuilderTargets();
   autoBuilderResults=[];
-  renderAutoBuilderTargetPrompt();
+  clearAutoBuilderResults();
 });
 document.getElementById("auto-builder-match-warding").addEventListener("change",()=>{
   renderAutoBuilderTargets();
   autoBuilderResults=[];
   document.getElementById("generate-auto-builds").disabled=!canRunAutoBuilder();
-  renderAutoBuilderTargetPrompt();
+  clearAutoBuilderResults();
 });
 document.getElementById("generate-auto-builds").addEventListener("click",runAutoBuilder);
 autoBuilderDialog.addEventListener("click",event=>{
