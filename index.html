@@ -7,7 +7,7 @@
   <title>Arcane Odyssey · Gear Workshop</title>
   <link rel="icon" type="image/png" href="assets/everthel-4.2.png">
   <link rel="apple-touch-icon" href="assets/everthel-4.2.png">
-  <link rel="stylesheet" href="styles.css?v=screenshot-match-stats-v2-20261123">
+  <link rel="stylesheet" href="styles.css?v=auto-builder-simplified-controls-20261124">
   <script src="theme.js?v=theme-no-light-20261123" defer></script>
 </head>
 <body>
@@ -19,7 +19,8 @@
       </a>
       <div class="top-actions">
         <button class="button button-quiet" id="toggle-screenshot" type="button" aria-pressed="false">Screenshot view</button>
-          <a class="button button-quiet" href="ship-builder/">Ship Builder</a>
+        <button class="button button-accent" id="open-auto-builder" type="button">Auto Builder</button>
+        <a class="button button-quiet" href="ship-builder/">Ship Builder</a>
         <label class="top-build-name" for="build-name"><span>BUILD NAME</span><input id="build-name" type="text" maxlength="40" placeholder="Untitled build"></label>
         <span class="save-state" id="save-state">Changes save locally</span>
         <div class="share-build-actions">
@@ -124,6 +125,36 @@
       <footer>Built for theorycrafting. Not affiliated with the Arcane Odyssey developers.</footer>
     </main>
   </div>
+  <dialog class="gem-combination-dialog auto-builder-dialog" id="auto-builder-dialog" aria-labelledby="auto-builder-title">
+    <div class="auto-builder-content">
+      <header class="gem-combination-dialog-header">
+        <div>
+          <h2 id="auto-builder-title">Auto gear builder</h2>
+        </div>
+        <button class="gem-combination-close" type="button" data-close-auto-builder aria-label="Close auto builder">×</button>
+      </header>
+      <div class="auto-builder-settings">
+        <div class="auto-builder-target-section">
+          <div class="auto-builder-target-heading">
+            <span class="auto-builder-label">BUILD TARGETS</span>
+          </div>
+          <div class="auto-builder-targets" id="auto-builder-targets"></div>
+        </div>
+        <div class="auto-builder-options">
+          <label class="auto-builder-level" for="auto-builder-level">PLAYER LEVEL
+            <input id="auto-builder-level" type="number" min="1" max="175" value="175" inputmode="numeric">
+          </label>
+          <label><input id="auto-builder-sunken" type="checkbox" checked> Allow Sunken gear</label>
+          <label><input id="auto-builder-optimize-ep" type="checkbox"> Optimize for EP</label>
+          <label class="auto-builder-drawback-control" for="auto-builder-max-drawback"><span>MAX DRAWBACK</span><input id="auto-builder-max-drawback" type="range" min="0" max="30" step="1" value="0"><output id="auto-builder-max-drawback-value" for="auto-builder-max-drawback">0</output></label>
+          <label class="auto-builder-insanity-control" for="auto-builder-max-insanity"><span>MAX INSANITY</span><input id="auto-builder-max-insanity" type="range" min="0" max="5" step="1" value="5"><output id="auto-builder-max-insanity-value" for="auto-builder-max-insanity">5</output></label>
+          <label><input id="auto-builder-match-warding" type="checkbox"> Match Warding to Insanity</label>
+        </div>
+        <button class="button button-accent auto-builder-generate" id="generate-auto-builds" type="button" disabled>Generate loadouts</button>
+      </div>
+      <div class="auto-builder-results" id="auto-builder-results" aria-live="polite"></div>
+    </div>
+  </dialog>
   <dialog class="gem-combination-dialog" id="gem-combination-dialog" aria-labelledby="gem-combination-title">
     <div class="gem-combination-dialog-content">
       <header class="gem-combination-dialog-header">
@@ -185,10 +216,10 @@
   <script src="item-catalog.js?v=fallen-king-set-20261123"></script>
   <script src="magic-gear-catalog.js?v=arcanium-gear-20261111"></script>
   <script src="fighting-gear-catalog.js?v=fighting-gear-20261111"></script>
-  <script src="newer-armor-records.js?v=fallen-king-set-20261123"></script>
+  <script src="newer-armor-records.js?v=dragon-armor-chestpiece-20261124"></script>
   <script src="wiki-armor-records.js"></script>
   <script src="dragon-armor-records.js"></script>
   <script src="gear-icon-map.js?v=fallen-king-set-icons-20261123"></script>
-  <script src="app.js?v=screenshot-match-stats-v2-20261123"></script>
+  <script src="app.js?v=auto-builder-simplified-controls-20261124"></script>
 </body>
 </html>

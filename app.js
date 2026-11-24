@@ -1,5 +1,7 @@
 const STAT_KEYS = ["power", "defense", "range", "haste", "size", "dexterity", "regeneration", "pierce", "resistance", "warding", "drawback", "insanity"];
+const AUTO_BUILDER_TARGET_STATS = STAT_KEYS.filter(key=>!["drawback","insanity"].includes(key));
 const MAX_GAME_LEVEL = 175;
+const AUTO_BUILDER_BEAM_WIDTH = 2400;
 const STAT_LABELS = { power:"Power", defense:"Defense", range:"Range", haste:"Haste", size:"Size", dexterity:"Dexterity", regeneration:"Regeneration", pierce:"Pierce", resistance:"Resistance", warding:"Warding", drawback:"Drawback", insanity:"Insanity" };
 const STAT_ICON_URLS = {
   power:"assets/Power.webp",
@@ -275,7 +277,7 @@ const ALL_ITEMS = [...UPDATED_CATALOG_ITEMS,...ADDED_NEWER_ARMOR_ITEMS,...ADDED_
   const category=ITEM_CATEGORY_BY_SUBTYPE[item.subType]||item.category;
   return {...item,magicPiece,category,type:CATEGORY_LABELS[category],level:latest.level,stats:{...latest.stats}};
 }).filter(item=>{
-  if(/(?:arcanium|mancer)/i.test(item.name))return true;
+  if(/(?:arcanium|mancer)/i.test(item.name)||/\bsunken\b/i.test(item.name))return true;
   return safeNumber(item.minLevel)>=100;
 });
 const ITEMS=ALL_ITEMS;
@@ -325,8 +327,10 @@ const SLOTS = [
   {id:"chestplate",label:"CHESTPIECE",name:"Chestpiece",categories:["Chestplate"]},
   {id:"pants",label:"LEGGINGS",name:"Leggings",categories:["Boots"]}
 ];
+const MAX_AUTO_BUILDER_INSANITY=SLOTS.length;
 const ACCESSORY_SLOT_IDS = ["accessory1","accessory2","accessory3"];
 const ITEM_ICON_SLOT_IDS = [...ACCESSORY_SLOT_IDS,"chestplate","pants"];
+const CHART_MODIFIER_WHITELIST_CACHE=new WeakMap();
 const starter = {
   name:"", level:175, dragonbloodTier:0, statBuild:"", magics:[], fightingStyles:[], gear:{
     accessory1:null,accessory2:null,accessory3:null,chestplate:null,pants:null
@@ -343,6 +347,8 @@ const pickerDropdownOpen = {};
 const activePickerIndexes = {};
 const statFilters = new Set();
 let activeGemTarget = null;
+let autoBuilderTargets = Object.fromEntries(AUTO_BUILDER_TARGET_STATS.map(key=>[key,0]));
+let autoBuilderResults = [];
 let saveTimer;
 let toastTimer;
 
@@ -350,18 +356,42 @@ function blankGear(){return {name:"",level:175,stats:{},enchant:"",modifier:"",d
 function safeNumber(value){const n=Number(value);return Number.isFinite(n)?n:0;}
 function clampGameLevel(value){return Math.max(1,Math.min(MAX_GAME_LEVEL,safeNumber(value)||MAX_GAME_LEVEL));}
 function esc(value){return String(value??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));}
+function getChartModifierWhitelist(item){
+  if(!item||typeof item!=="object")return new Set();
+  const cached=CHART_MODIFIER_WHITELIST_CACHE.get(item);
+  if(cached)return cached;
+  const sourceRecord=getNewerArmorSourceForItem(item);
+  let allowed;
+  if(sourceRecord){
+    if(!Object.prototype.hasOwnProperty.call(sourceRecord,"modifiers"))allowed=new Set();
+    else if(sourceRecord.modifiers?.all===true){
+      allowed=new Set(MODIFIERS.map(([id])=>id).filter(id=>id&&id!=="atlantean"));
+    }else{
+      allowed=new Set(Object.entries(sourceRecord.modifiers||{})
+        .filter(([,enabled])=>enabled===true)
+        .map(([name])=>name.toLowerCase().replace(/[^a-z0-9]+/g,"-")));
+    }
+  }else if(item.modifierAllowed===true){
+    allowed=new Set(MODIFIERS.map(([id])=>id).filter(id=>id&&id!=="atlantean"));
+  }else{
+    allowed=new Set();
+  }
+  CHART_MODIFIER_WHITELIST_CACHE.set(item,allowed);
+  return allowed;
+}
 function canUseModifier(gear,item){
   const isKnownModifier=MODIFIERS.some(([id])=>id===gear.modifier);
   const isEquipment=MODIFIER_GEAR_CATEGORIES.has(item?.category);
   const isAtlantean=gear.modifier==="atlantean";
   const isAtlanteanOnlyItem=item?.name==="Jewel Amulet";
   const isLostSet=item?.lostSet===true||/\blost\b/i.test(item?.name||"");
-  const isGildedLostSet=gear.modifier==="gilded"&&isLostSet;
-  const isArcaniumGear=/\barcanium\b|mancer/i.test(item?.name||"");
-  const isArcaniumBracelet=isArcaniumGear&&/\bbracelet\b/i.test(item?.name||"");
-  const isModifierLocked=item?.essenceLocked||isLostSet;
-  const canUseRegularModifiers=!item?.dragonGear&&(item?.modifierAllowed!==false||(isArcaniumGear&&!isArcaniumBracelet));
-  const canUse=gear.modifier===""||isAtlantean||(!isAtlanteanOnlyItem&&!isModifierLocked&&canUseRegularModifiers)||isGildedLostSet;
+  const isSunkenSet=/\bsunken\b/i.test(item?.name||"");
+  const isArcaniumBracelet=/\barcanium\b/i.test(item?.name||"")&&/\bbracelet\b/i.test(item?.name||"");
+  const isModifierLocked=item?.essenceLocked||isLostSet||isSunkenSet;
+  const allowedChartModifiers=getChartModifierWhitelist(item);
+  const isGildedLostSet=gear.modifier==="gilded"&&isLostSet&&allowedChartModifiers.has("gilded");
+  const canUseRegularModifiers=!item?.dragonGear&&!isAtlanteanOnlyItem&&!isModifierLocked&&!isArcaniumBracelet&&allowedChartModifiers.has(gear.modifier);
+  const canUse=gear.modifier===""||isAtlantean||canUseRegularModifiers||isGildedLostSet;
   return Boolean(item&&isEquipment&&canUse&&isKnownModifier&&!(isAtlantean&&gear.enchant==="virtuous"));
 }
 function sanitizeStatBuild(buildState){
@@ -559,8 +589,8 @@ function accessoryConflict(item,other){
   if(item.name===other.name)return `You can only equip one ${item.name}.`;
   if(item.magicKey&&other.magicKey&&item.magicPiece===other.magicPiece)return `Only one ${item.magicPiece} can be equipped at a time.`;
   if(item.fightingStyle&&other.fightingStyle&&item.fightingPiece===other.fightingPiece)return `Only one ${item.fightingPiece.replace("Fighting ","").toLowerCase()} can be equipped at a time.`;
-  if(item.category==="Helmet"&&other.category==="Helmet")return "Only one helmet can be equipped at a time.";
-  if(item.category==="Amulet"&&other.category==="Amulet")return "Only one amulet can be equipped at a time.";
+  if((item.category==="Helmet"||/\bhelmet\b/i.test(item.name))&&(other.category==="Helmet"||/\bhelmet\b/i.test(other.name)))return "Only one helmet can be equipped at a time.";
+  if((item.category==="Amulet"||/\bamulet\b/i.test(item.name))&&(other.category==="Amulet"||/\bamulet\b/i.test(other.name)))return "Only one amulet can be equipped at a time.";
   return "";
 }
 function accessoryConflictForSlot(slotId,item,gearState=build.gear){
@@ -849,6 +879,519 @@ function openGearPicker(slotId){
 function renderGearItemIcon(item,className){
   const src=window.BUILDER_GEAR_ICON_MAP?.[item?.name]?.src||"assets/gear-icons/placeholder.svg";
   return `<img class="${className}" src="${esc(src)}" alt="" loading="lazy" onerror="this.onerror=null;this.src='assets/gear-icons/placeholder.svg'">`;
+}
+function getAutoBuilderTargets(){
+  const matchWardingToInsanity=document.getElementById("auto-builder-match-warding").checked;
+  return Object.fromEntries(AUTO_BUILDER_TARGET_STATS
+    .filter(key=>safeNumber(autoBuilderTargets[key])>0&&!(matchWardingToInsanity&&key==="warding"))
+    .map(key=>[key,Math.round(safeNumber(autoBuilderTargets[key]))]));
+}
+function canRunAutoBuilder(){
+  return document.getElementById("auto-builder-optimize-ep").checked
+    ||Object.keys(getAutoBuilderTargets()).length>0;
+}
+function getAutoBuilderTargetMaximums(level){
+  const maximums=Object.fromEntries(AUTO_BUILDER_TARGET_STATS.map(key=>[key,0]));
+  const socketBudget=SLOTS.reduce((total,slot)=>{
+    const items=ITEMS.filter(item=>slot.categories.includes(item.category)&&canAutoBuildUseItem(item,{sunken:document.getElementById("auto-builder-sunken").checked}));
+    return total+Math.max(0,...items.map(item=>(item.jewelSlots||0)+1));
+  },0);
+  for(const slot of SLOTS){
+    const slotMaximums=Object.fromEntries(AUTO_BUILDER_TARGET_STATS.map(key=>[key,0]));
+    for(const item of ITEMS){
+      if(!slot.categories.includes(item.category)||!canAutoBuildUseItem(item,{sunken:document.getElementById("auto-builder-sunken").checked}))continue;
+      const itemLevel=getPlayerItemLevel(item,level);
+      const stats=getItemStatsAtLevel(item,itemLevel);
+      for(const key of AUTO_BUILDER_TARGET_STATS)slotMaximums[key]=Math.max(slotMaximums[key],safeNumber(stats[key]));
+    }
+    for(const key of AUTO_BUILDER_TARGET_STATS)maximums[key]+=slotMaximums[key];
+  }
+  const gemMaximums=Object.fromEntries(AUTO_BUILDER_TARGET_STATS.map(key=>[key,0]));
+  for(let firstIndex=0;firstIndex<GEMS.length;firstIndex++){
+    for(let secondIndex=firstIndex;secondIndex<GEMS.length;secondIndex++){
+      const stats=getCombinedGemStats({gem:GEMS[firstIndex].id,fusionGem:GEMS[secondIndex].id});
+      for(const key of AUTO_BUILDER_TARGET_STATS)gemMaximums[key]=Math.max(gemMaximums[key],safeNumber(stats[key]));
+    }
+  }
+  return Object.fromEntries(AUTO_BUILDER_TARGET_STATS.map(key=>[
+    key,Math.max(10,Math.ceil((maximums[key]*1.4+gemMaximums[key]*socketBudget)/10)*10)
+  ]));
+}
+function getAutoBuilderDrawbackMaximum(level){
+  let itemMaximum=0;
+  let socketBudget=0;
+  for(const slot of SLOTS){
+    let slotMaximum=0;
+    let slotSockets=0;
+    for(const item of ITEMS){
+      if(!slot.categories.includes(item.category)||!canAutoBuildUseItem(item,{sunken:document.getElementById("auto-builder-sunken").checked}))continue;
+      const itemLevel=getPlayerItemLevel(item,level);
+      const colors=item.dragonGear?getDragonColorRecords(item).map(color=>getDragonColorName(item,color)):[""];
+      for(const color of colors){
+        const stats=item.dragonGear
+          ?getDragonColorStats(item,color||getDefaultDragonColor(item),itemLevel)
+          :getItemStatsAtLevel(item,itemLevel);
+        slotMaximum=Math.max(slotMaximum,safeNumber(stats.drawback));
+      }
+      slotSockets=Math.max(slotSockets,(item.jewelSlots||0)+1);
+    }
+    itemMaximum+=slotMaximum;
+    socketBudget+=slotSockets;
+  }
+  let gemMaximum=0;
+  for(let firstIndex=0;firstIndex<GEMS.length;firstIndex++){
+    for(let secondIndex=firstIndex;secondIndex<GEMS.length;secondIndex++){
+      gemMaximum=Math.max(gemMaximum,safeNumber(getCombinedGemStats({
+        gem:GEMS[firstIndex].id,fusionGem:GEMS[secondIndex].id
+      }).drawback));
+    }
+  }
+  return Math.max(5,Math.ceil(itemMaximum+gemMaximum*socketBudget));
+}
+function renderAutoBuilderTargets(){
+  const level=clampGameLevel(document.getElementById("auto-builder-level").value);
+  const maximums=getAutoBuilderTargetMaximums(level);
+  const drawbackMaximum=getAutoBuilderDrawbackMaximum(level);
+  const drawbackInput=document.getElementById("auto-builder-max-drawback");
+  drawbackInput.max=String(drawbackMaximum);
+  drawbackInput.value=String(Math.min(drawbackMaximum,safeNumber(drawbackInput.value)));
+  document.getElementById("auto-builder-max-drawback-value").textContent=drawbackInput.value;
+  const container=document.getElementById("auto-builder-targets");
+  const matchWardingToInsanity=document.getElementById("auto-builder-match-warding").checked;
+  container.innerHTML=AUTO_BUILDER_TARGET_STATS.map(key=>{
+    const maximum=maximums[key];
+    autoBuilderTargets[key]=Math.round(Math.max(0,Math.min(maximum,safeNumber(autoBuilderTargets[key]))));
+    const value=autoBuilderTargets[key];
+    const disabled=matchWardingToInsanity&&key==="warding";
+    return `<div class="auto-builder-target"><label class="auto-builder-target-label" for="auto-builder-target-${key}">${renderStatIcon(key,{decorative:true})}${esc(STAT_LABELS[key])}</label><input id="auto-builder-target-${key}" type="range" min="0" max="${maximum}" step="1" value="${value}" data-auto-target="${key}" aria-label="${esc(STAT_LABELS[key])} target"${disabled?" disabled":""}><input type="number" min="0" max="${maximum}" step="1" value="${value}" data-auto-target="${key}" aria-label="${esc(STAT_LABELS[key])} target amount"${disabled?" disabled":""}></div>`;
+  }).join("");
+  document.getElementById("generate-auto-builds").disabled=!canRunAutoBuilder();
+}
+function getAutoBuilderScore(stats,targets,targetDivisor=1){
+  return getAutoBuilderMinimumTargetRatio(stats,targets,targetDivisor);
+}
+function getAutoBuilderMinimumTargetRatio(stats,targets,targetDivisor=1){
+  const entries=Object.entries(targets);
+  if(!entries.length)return 0;
+  return Math.min(...entries.map(([key,target])=>Math.max(0,Math.round(safeNumber(stats[key])*10)/10)/(target/targetDivisor)));
+}
+function getAutoBuilderSelectedStatScore(stats,targets,targetDivisor=1){
+  const entries=Object.entries(targets);
+  if(!entries.length)return 0;
+  return entries.reduce((sum,[key,target])=>
+    sum+Math.max(0,Math.round(safeNumber(stats[key])*10)/10)/(target/targetDivisor),0
+  )/entries.length;
+}
+function getAutoBuilderOffTargetScore(stats,targets){
+  const offTargetStats=Object.fromEntries(STAT_KEYS
+    .filter(key=>!Object.prototype.hasOwnProperty.call(targets,key)&&!["drawback","insanity"].includes(key))
+    .map(key=>[key,Math.max(0,safeNumber(stats[key]))]));
+  return getEfficiencyPoints(offTargetStats);
+}
+function getAutoBuilderTieBreakScore(stats,targets){
+  const entries=Object.entries(targets);
+  return entries.reduce((sum,[key,target])=>{
+    const ratio=Math.max(0,Math.round(safeNumber(stats[key])*10)/10)/target;
+    return sum+ratio/(1+ratio);
+  },0)/Math.max(1,entries.length);
+}
+function getAutoBuilderFilteredEfficiencyPoints(stats,targets){
+  const filteredStats=Object.fromEntries(Object.keys(targets).map(key=>[key,safeNumber(stats[key])]));
+  const targetDeficits=Object.fromEntries(Object.entries(targets).map(([key,target])=>[
+    key,Math.max(0,target-safeNumber(stats[key]))
+  ]));
+  return getEfficiencyPoints(stats)
+    +0.25*getEfficiencyPoints(filteredStats)
+    -1.5*getEfficiencyPoints(targetDeficits);
+}
+function getAutoBuilderRankingFields(stats,targets,settings,targetDivisor=1){
+  if(settings.optimizeForEP)return {
+    score:getAutoBuilderFilteredEfficiencyPoints(stats,targets),
+    selectedStatScore:0,wardingMatchScore:0,offTargetScore:0,tieBreakScore:0
+  };
+  return {
+    score:getAutoBuilderScore(stats,targets,targetDivisor),
+    selectedStatScore:getAutoBuilderSelectedStatScore(stats,targets,targetDivisor),
+    wardingMatchScore:settings.matchWardingToInsanity
+      ?1/(1+Math.abs(safeNumber(stats.warding)-safeNumber(stats.insanity))):0,
+    offTargetScore:getAutoBuilderOffTargetScore(stats,targets),
+    tieBreakScore:getAutoBuilderTieBreakScore(stats,targets)
+  };
+}
+function compareAutoBuilderCandidates(first,second){
+  return second.score-first.score
+    ||safeNumber(second.selectedStatScore)-safeNumber(first.selectedStatScore)
+    ||safeNumber(second.wardingMatchScore)-safeNumber(first.wardingMatchScore)
+    ||safeNumber(first.offTargetScore)-safeNumber(second.offTargetScore)
+    ||safeNumber(second.tieBreakScore)-safeNumber(first.tieBreakScore);
+}
+function compareAutoBuilderSearchStates(first,second){
+  return safeNumber(second.searchScore)-safeNumber(first.searchScore)
+    ||safeNumber(second.searchStatScore)-safeNumber(first.searchStatScore)
+    ||compareAutoBuilderCandidates(first,second);
+}
+function getAutoBuilderGemPlans(targets,settings){
+  const plans=[];
+  for(let firstIndex=0;firstIndex<GEMS.length;firstIndex++){
+    for(let secondIndex=firstIndex;secondIndex<GEMS.length;secondIndex++){
+      const first=GEMS[firstIndex];
+      const second=GEMS[secondIndex];
+      const stats=getCombinedGemStats({gem:first.id,fusionGem:second.id});
+      if(safeNumber(stats.drawback)>settings.maxDrawback+1e-9)continue;
+      plans.push({
+        gem:first.id,fusionGem:second.id,stats,
+        name:first.id===second.id?`${first.name} × 2`:`${first.name} + ${second.name}`
+      });
+    }
+  }
+  plans.sort((first,second)=>compareAutoBuilderCandidates(
+    {...first,...getAutoBuilderRankingFields(first.stats,targets,settings)},
+    {...second,...getAutoBuilderRankingFields(second.stats,targets,settings)}
+  ));
+  return plans;
+}
+function getAutoBuilderGemLayouts(gemPlans,socketCount,targets,settings){
+  if(!socketCount)return [{
+    socketPlans:[],stats:Object.fromEntries(STAT_KEYS.map(key=>[key,0])),name:"No jewels"
+  }];
+  const objectiveTargets=[targets,...Object.entries(targets).map(([key,value])=>({[key]:value}))];
+  const layouts=new Map();
+  for(const objective of objectiveTargets){
+    let beam=[{socketPlans:[],stats:Object.fromEntries(STAT_KEYS.map(key=>[key,0]))}];
+    for(let socketIndex=0;socketIndex<socketCount;socketIndex++){
+      const bestByStats=new Map();
+      const bestByConstraints=new Map();
+      for(const state of beam){
+        for(const plan of gemPlans){
+          const stats={...state.stats};
+          for(const key of STAT_KEYS)stats[key]+=safeNumber(plan.stats[key]);
+          if(stats.drawback>settings.maxDrawback+1e-9)continue;
+          if(stats.insanity>settings.maxInsanity+1e-9)continue;
+          const next={
+            socketPlans:[...state.socketPlans,plan],
+            stats,
+            ...getAutoBuilderRankingFields(stats,objective,settings),
+            selectedStatScore:getAutoBuilderSelectedStatScore(stats,targets),
+            offTargetScore:getAutoBuilderOffTargetScore(stats,targets)
+          };
+          const statsKey=STAT_KEYS.map(key=>safeNumber(stats[key]).toFixed(3)).join("|");
+          const previousByStats=bestByStats.get(statsKey);
+          if(!previousByStats||compareAutoBuilderCandidates(next,previousByStats)<0)bestByStats.set(statsKey,next);
+          const constraintsKey=[
+            stats.drawback,
+            stats.insanity,
+            settings.matchWardingToInsanity?stats.warding:0
+          ].map(value=>safeNumber(value).toFixed(3)).join("|");
+          const previous=bestByConstraints.get(constraintsKey);
+          if(!previous||compareAutoBuilderCandidates(next,previous)<0)bestByConstraints.set(constraintsKey,next);
+        }
+      }
+      const selected=new Set([...bestByStats.values()].sort(compareAutoBuilderCandidates).slice(0,24));
+      for(const state of [...bestByConstraints.values()].sort(compareAutoBuilderCandidates)){
+        if(selected.size>=32)break;
+        selected.add(state);
+      }
+      beam=[...selected].sort(compareAutoBuilderCandidates);
+      if(!beam.length)break;
+    }
+    const best=beam[0];
+    if(!best||best.socketPlans.length!==socketCount)continue;
+    const socketPlans=[...best.socketPlans].sort((first,second)=>first.name.localeCompare(second.name));
+    const name=socketPlans.map(plan=>plan.name).join(" · ");
+    layouts.set(name,{...best,socketPlans,name});
+  }
+  return [...layouts.values()];
+}
+function getAutoBuilderVariants(item,targets,settings,gemPlans,gemLayoutCache){
+  const level=getPlayerItemLevel(item,settings.level);
+  const slotTargets=Object.fromEntries(Object.entries(targets).map(([key,target])=>[key,target/SLOTS.length]));
+  const colors=item.dragonGear
+    ?getDragonColorRecords(item).map(color=>getDragonColorName(item,color))
+    :[""];
+  const enchantOptions=ENCHANTS.map(([value])=>value);
+  const modifierOptions=MODIFIERS.map(([value])=>value);
+  const variants=[];
+  const fingerprints=new Set();
+  for(const dragonColor of colors){
+    const stats=getItemStatsAtLevel(item,level,dragonColor||getDefaultDragonColor(item));
+    for(const enchant of enchantOptions){
+      for(const modifier of modifierOptions){
+        if(modifier==="gilded"&&/^Lost Diplomat\b/i.test(item.name))continue;
+        const gear={...blankGear(),name:item.name,level,stats,enchant,modifier,dragonColor};
+        if(!canUseModifier(gear,item))continue;
+        const socketCount=(item.jewelSlots||0)+(modifier==="gilded"?1:0);
+        let layouts=gemLayoutCache.get(socketCount);
+        if(!layouts){
+          layouts=getAutoBuilderGemLayouts(gemPlans,socketCount,targets,settings);
+          gemLayoutCache.set(socketCount,layouts);
+        }
+        for(const layout of layouts){
+          const configured={...gear,sockets:layout.socketPlans.map(plan=>({gem:plan.gem,fusionGem:plan.fusionGem}))};
+          const fingerprint=JSON.stringify([enchant,modifier,dragonColor,configured.sockets]);
+          if(fingerprints.has(fingerprint))continue;
+          fingerprints.add(fingerprint);
+          const totalStats=getGearTotalStats(configured);
+          if(safeNumber(totalStats.drawback)>settings.maxDrawback+1e-9)continue;
+          if(safeNumber(totalStats.insanity)>settings.maxInsanity+1e-9)continue;
+          variants.push({
+            item,gear:configured,stats:totalStats,
+            ...getAutoBuilderRankingFields(totalStats,slotTargets,settings),
+            efficiency:getEfficiencyPoints(totalStats),
+            jewelPlan:layout.name
+          });
+        }
+      }
+    }
+  }
+  variants.sort(compareAutoBuilderCandidates);
+  const selected=new Set(variants.slice(0,6));
+  const bestByJewelPlan=new Map();
+  const bestByConstraints=new Map();
+  const bestByTargetStat=new Map();
+  for(const variant of variants){
+    if(!bestByJewelPlan.has(variant.jewelPlan))bestByJewelPlan.set(variant.jewelPlan,variant);
+    const key=[
+      safeNumber(variant.stats.drawback),
+      safeNumber(variant.stats.insanity),
+      settings.matchWardingToInsanity?safeNumber(variant.stats.warding):0
+    ].map(value=>value.toFixed(3)).join("|");
+    if(!bestByConstraints.has(key))bestByConstraints.set(key,variant);
+    for(const targetKey of Object.keys(targets)){
+      const previous=bestByTargetStat.get(targetKey);
+      if(!previous
+        ||safeNumber(variant.stats[targetKey])>safeNumber(previous.stats[targetKey])
+        ||(safeNumber(variant.stats[targetKey])===safeNumber(previous.stats[targetKey])
+          &&compareAutoBuilderCandidates(variant,previous)<0))bestByTargetStat.set(targetKey,variant);
+    }
+  }
+  for(const variant of bestByJewelPlan.values())selected.add(variant);
+  for(const variant of bestByConstraints.values())selected.add(variant);
+  for(const variant of bestByTargetStat.values())selected.add(variant);
+  return [...selected].sort(compareAutoBuilderCandidates);
+}
+function canAutoBuildUseItem(item,settings){
+  if(!settings.sunken&&/\bsunken\b/i.test(item.name))return false;
+  if(item.magicKey&&!build.magics.includes(item.magicKey))return false;
+  if(item.fightingStyle&&!build.fightingStyles.includes(item.fightingStyle))return false;
+  return true;
+}
+function autoBuilderStateKey(state,slotIndex,settings){
+  const names=state.selected.map(entry=>entry.item.name);
+  const accessoryNames=names.slice(0,Math.min(slotIndex+1,3)).sort();
+  const constraintStats=[state.totals.insanity];
+  constraintStats.push(state.totals.drawback);
+  if(settings.matchWardingToInsanity)constraintStats.push(state.totals.warding);
+  const constraintKey=constraintStats.map(value=>safeNumber(value).toFixed(3)).join("|");
+  return `${accessoryNames.join("|")}::${names.slice(3).join("|")}::${constraintKey}`;
+}
+function getAutoBuilderCurrentLoadoutCandidate(targets,settings){
+  const selected=[];
+  const gear={};
+  const totals=Object.fromEntries(STAT_KEYS.map(key=>[key,0]));
+  for(let slotIndex=0;slotIndex<SLOTS.length;slotIndex++){
+    const slot=SLOTS[slotIndex];
+    const currentGear=build.gear[slot.id];
+    if(!currentGear)return null;
+    const item=ITEMS.find(entry=>entry.name===currentGear.name);
+    if(!item||!slot.categories.includes(item.category)||!canAutoBuildUseItem(item,settings)||!canUseModifier(currentGear,item))return null;
+    if(slotIndex<3&&selected.some(entry=>accessoryConflict(item,entry.item)))return null;
+    const configured={...currentGear,sockets:(currentGear.sockets||[]).map(socket=>({...socket}))};
+    const stats=getGearTotalStats(configured);
+    selected.push({item,gear:configured,stats});
+    gear[slot.id]=configured;
+    for(const key of STAT_KEYS)totals[key]+=safeNumber(stats[key]);
+  }
+  if(totals.insanity>settings.maxInsanity+1e-9)return null;
+  if(totals.drawback>settings.maxDrawback+1e-9)return null;
+  if(settings.matchWardingToInsanity&&Math.abs(totals.warding-totals.insanity)>1e-9)return null;
+  return {
+    selected,gear,totals,
+    ...getAutoBuilderRankingFields(totals,targets,settings),
+    efficiency:getEfficiencyPoints(totals),
+    matchWardingToInsanity:settings.matchWardingToInsanity,
+    isCurrentLoadout:true
+  };
+}
+function refineAutoBuilderCandidate(seed,slotCandidates,targets,settings){
+  let current=seed;
+  for(let pass=0;pass<4;pass++){
+    let improved=false;
+    for(let slotIndex=0;slotIndex<SLOTS.length;slotIndex++){
+      const slot=SLOTS[slotIndex];
+      const currentEntry=current.selected[slotIndex];
+      let best=current;
+      for(const candidate of slotCandidates[slotIndex]){
+        if(candidate===currentEntry)continue;
+        if(slotIndex<3&&current.selected.some((entry,index)=>
+          index<3&&index!==slotIndex&&accessoryConflict(candidate.item,entry.item)))continue;
+        const totals=Object.fromEntries(STAT_KEYS.map(key=>[
+          key,safeNumber(current.totals[key])-safeNumber(currentEntry.stats[key])+safeNumber(candidate.stats[key])
+        ]));
+        if(totals.insanity>settings.maxInsanity+1e-9)continue;
+        if(totals.drawback>settings.maxDrawback+1e-9)continue;
+        if(settings.matchWardingToInsanity&&Math.abs(totals.warding-totals.insanity)>1e-9)continue;
+        const selected=[...current.selected];
+        selected[slotIndex]=candidate;
+        const next={
+          ...current,selected,totals,
+          gear:{...current.gear,[slot.id]:candidate.gear},
+          ...getAutoBuilderRankingFields(totals,targets,settings),
+          efficiency:getEfficiencyPoints(totals)
+        };
+        if(compareAutoBuilderCandidates(next,best)<0)best=next;
+      }
+      if(best!==current){
+        current=best;
+        improved=true;
+      }
+    }
+    if(!improved)break;
+  }
+  return current;
+}
+function getAutoBuilderItemSetKey(candidate){
+  return `${candidate.selected.slice(0,3).map(entry=>entry.item.name).sort().join("|")}::${candidate.selected.slice(3).map(entry=>entry.item.name).join("|")}`;
+}
+function getAutoBuilderGearKey(gear){
+  return SLOTS.map(slot=>{
+    const item=gear[slot.id];
+    return JSON.stringify([
+      item?.name,item?.level,item?.enchant,item?.modifier,item?.dragonColor,
+      (item?.sockets||[]).map(socket=>[socket.gem,socket.fusionGem])
+    ]);
+  }).join("|");
+}
+function buildAutoGearSuggestions(targets,settings){
+  const gemPlans=getAutoBuilderGemPlans(targets,settings);
+  const gemLayoutCache=new Map();
+  const slotCandidates=SLOTS.map(slot=>ITEMS
+    .filter(item=>slot.categories.includes(item.category)&&canAutoBuildUseItem(item,settings))
+    .flatMap(item=>getAutoBuilderVariants(item,targets,settings,gemPlans,gemLayoutCache))
+    .sort(compareAutoBuilderCandidates));
+  if(slotCandidates.some(candidates=>!candidates.length))return [];
+  const remainingMaximums=SLOTS.map((_,slotIndex)=>{
+    const maximums=Object.fromEntries(Object.keys(targets).map(key=>[key,0]));
+    for(let futureSlot=slotIndex+1;futureSlot<SLOTS.length;futureSlot++){
+      for(const key of Object.keys(targets)){
+        maximums[key]+=Math.max(0,...slotCandidates[futureSlot].map(candidate=>safeNumber(candidate.stats[key])));
+      }
+    }
+    return maximums;
+  });
+
+  let beam=[{selected:[],gear:{},totals:Object.fromEntries(STAT_KEYS.map(key=>[key,0])),score:0}];
+  for(let slotIndex=0;slotIndex<SLOTS.length;slotIndex++){
+    const slot=SLOTS[slotIndex];
+    const bestByItems=new Map();
+    for(const state of beam){
+      for(const candidate of slotCandidates[slotIndex]){
+        if(slotIndex<3&&state.selected.slice(0,3).some(entry=>accessoryConflict(candidate.item,entry.item)))continue;
+        const nextTotals={...state.totals};
+        for(const key of STAT_KEYS)nextTotals[key]+=safeNumber(candidate.stats[key]);
+        const next={selected:[...state.selected,candidate],gear:{...state.gear,[slot.id]:candidate.gear},totals:nextTotals};
+        Object.assign(next,getAutoBuilderRankingFields(nextTotals,targets,settings));
+        next.efficiency=getEfficiencyPoints(nextTotals);
+        const potentialStats={...nextTotals};
+        for(const [key,maximum]of Object.entries(remainingMaximums[slotIndex]))potentialStats[key]+=maximum;
+        next.searchScore=settings.optimizeForEP
+          ?next.score:getAutoBuilderScore(potentialStats,targets);
+        next.searchStatScore=settings.optimizeForEP
+          ?0:getAutoBuilderSelectedStatScore(potentialStats,targets);
+        if(nextTotals.insanity>settings.maxInsanity+1e-9)continue;
+        if(nextTotals.drawback>settings.maxDrawback+1e-9)continue;
+        if(slotIndex===SLOTS.length-1&&settings.matchWardingToInsanity&&Math.abs(nextTotals.warding-nextTotals.insanity)>1e-9)continue;
+        const key=autoBuilderStateKey(next,slotIndex,settings);
+        const previous=bestByItems.get(key);
+        if(!previous||compareAutoBuilderSearchStates(next,previous)<0)bestByItems.set(key,next);
+      }
+    }
+    beam=[...bestByItems.values()].sort(compareAutoBuilderSearchStates).slice(0,AUTO_BUILDER_BEAM_WIDTH);
+  }
+  beam.sort(compareAutoBuilderCandidates);
+  const refinementSeeds=[];
+  const seenItemSets=new Set();
+  for(const candidate of beam){
+    const key=getAutoBuilderItemSetKey(candidate);
+    if(seenItemSets.has(key))continue;
+    seenItemSets.add(key);
+    refinementSeeds.push(candidate);
+    if(refinementSeeds.length>=24)break;
+  }
+  const refined=refinementSeeds.map(candidate=>refineAutoBuilderCandidate(candidate,slotCandidates,targets,settings));
+  const currentLoadout=getAutoBuilderCurrentLoadoutCandidate(targets,settings);
+  const candidates=[...beam,...refined];
+  if(currentLoadout)candidates.push(currentLoadout);
+  candidates.sort(compareAutoBuilderCandidates);
+  const unique=[];
+  const seenGear=new Set();
+  for(const candidate of candidates){
+    const key=getAutoBuilderGearKey(candidate.gear);
+    if(seenGear.has(key))continue;
+    seenGear.add(key);
+    unique.push(candidate);
+    if(unique.length===5)break;
+  }
+  return unique.map(state=>({
+    gear:state.gear,totals:state.totals,score:state.score,
+    efficiency:state.efficiency,matchWardingToInsanity:settings.matchWardingToInsanity,
+    isCurrentLoadout:state.isCurrentLoadout||false,
+    optimizeForEP:settings.optimizeForEP
+  }));
+}
+function renderAutoBuilderResults(){
+  const container=document.getElementById("auto-builder-results");
+  if(!autoBuilderResults.length){
+    container.innerHTML=`<p class="auto-builder-empty">No complete loadouts fit these settings. Try raising the Drawback or Insanity caps, turning off Drawback exclusion, or checking your stat-build selections.</p>`;
+    return;
+  }
+  container.innerHTML=autoBuilderResults.map((result,index)=>{
+    const items=SLOTS.map(slot=>{
+      const gear=result.gear[slot.id];
+      const item=ITEMS.find(entry=>entry.name===gear.name);
+      const enchant=ENCHANTS.find(([value])=>value===gear.enchant)?.[1]||"No enchant";
+      const modifier=MODIFIERS.find(([value])=>value===gear.modifier)?.[1]||"No modifier";
+      const jewelNames=(gear.sockets||[]).filter(socket=>socket.gem).map(socket=>{
+        const first=GEMS.find(gem=>gem.id===socket.gem)?.name||"Jewel";
+        const second=GEMS.find(gem=>gem.id===socket.fusionGem)?.name;
+        return second?`${first} + ${second}`:first;
+      });
+      return `<div class="auto-builder-item">${renderGearItemIcon(item,"auto-builder-item-icon")}<div class="auto-builder-item-info"><span class="auto-builder-item-slot">${esc(slot.name)}</span><strong>${esc(item.name)}</strong><span>${esc([enchant,modifier,...jewelNames].filter(value=>value&&!/^No (enchant|modifier)$/.test(value)).join(" · ")||"No enchant or modifier")}</span><div class="auto-builder-item-stats">${formatGearStats(getGearTotalStats(gear))}</div></div></div>`;
+    }).join("");
+    const totalStatText=formatGearStats(result.totals);
+    const optionLabel=result.isCurrentLoadout?"CURRENT LOADOUT":`OPTION ${index+1}`;
+    return `<article class="auto-builder-result"><header><div><span class="auto-builder-result-label">${optionLabel}</span><h3>${formatEfficiencyPoints(result.efficiency)} EP</h3></div><button class="button button-accent" type="button" data-use-auto-build="${index}">Use this build</button></header><div class="auto-builder-total-stats">${totalStatText}</div><div class="auto-builder-items">${items}</div></article>`;
+  }).join("");
+}
+function renderAutoBuilderTargetPrompt(){
+  document.getElementById("auto-builder-results").innerHTML="";
+}
+function runAutoBuilder(){
+  const button=document.getElementById("generate-auto-builds");
+  const results=document.getElementById("auto-builder-results");
+  const level=clampGameLevel(document.getElementById("auto-builder-level").value);
+  document.getElementById("auto-builder-level").value=level;
+  const targets=getAutoBuilderTargets();
+  const optimizeForEP=document.getElementById("auto-builder-optimize-ep").checked;
+  if(!optimizeForEP&&!Object.keys(targets).length)return;
+  button.disabled=true;
+  results.innerHTML=`<p class="auto-builder-empty">Comparing gear, modifiers, enchants, and jewels…</p>`;
+  setTimeout(()=>{
+    try{
+      autoBuilderResults=buildAutoGearSuggestions(targets,{
+        level,sunken:document.getElementById("auto-builder-sunken").checked,
+        maxDrawback:safeNumber(document.getElementById("auto-builder-max-drawback").value),
+        maxInsanity:safeNumber(document.getElementById("auto-builder-max-insanity").value),
+        matchWardingToInsanity:document.getElementById("auto-builder-match-warding").checked,
+        optimizeForEP
+      });
+      renderAutoBuilderResults();
+    }catch(error){
+      console.error("Could not generate gear suggestions.",error);
+      results.innerHTML=`<p class="auto-builder-empty">Could not generate loadouts. Please try again.</p>`;
+    }finally{
+      button.disabled=!canRunAutoBuilder();
+    }
+  },30);
 }
 function renderCard(slot){
   const gear=build.gear[slot.id];
@@ -1408,3 +1951,77 @@ document.getElementById("toggle-screenshot").addEventListener("click",event=>{
 });
 renderSavedGearBuilds();
 render();
+const autoBuilderDialog=document.getElementById("auto-builder-dialog");
+const autoBuilderMaxInsanity=document.getElementById("auto-builder-max-insanity");
+const autoBuilderMaxDrawback=document.getElementById("auto-builder-max-drawback");
+autoBuilderMaxInsanity.max=String(MAX_AUTO_BUILDER_INSANITY);
+autoBuilderMaxInsanity.value=String(MAX_AUTO_BUILDER_INSANITY);
+document.getElementById("auto-builder-max-insanity-value").textContent=String(MAX_AUTO_BUILDER_INSANITY);
+renderAutoBuilderTargets();
+document.getElementById("open-auto-builder").addEventListener("click",()=>{
+  document.getElementById("auto-builder-level").value=build.level||175;
+  renderAutoBuilderTargets();
+  renderAutoBuilderTargetPrompt();
+  autoBuilderDialog.showModal();
+});
+document.getElementById("auto-builder-targets").addEventListener("input",event=>{
+  const control=event.target.closest("[data-auto-target]");
+  if(!control)return;
+  const row=control.closest(".auto-builder-target");
+  const rawTarget=safeNumber(control.value);
+  const target=Math.round(Math.max(0,Math.min(safeNumber(control.max),rawTarget)));
+  autoBuilderTargets[control.dataset.autoTarget]=target;
+  row.querySelector('input[type="range"]').value=target;
+  if(control.type!=="number")row.querySelector('input[type="number"]').value=target;
+  else if(control.value!==""&&rawTarget!==target)control.value=target;
+  autoBuilderResults=[];
+  document.getElementById("generate-auto-builds").disabled=!canRunAutoBuilder();
+  renderAutoBuilderTargetPrompt();
+});
+document.getElementById("auto-builder-level").addEventListener("change",()=>{
+  renderAutoBuilderTargets();
+  autoBuilderResults=[];
+  renderAutoBuilderTargetPrompt();
+});
+document.getElementById("auto-builder-sunken").addEventListener("change",()=>{
+  renderAutoBuilderTargets();
+  autoBuilderResults=[];
+  renderAutoBuilderTargetPrompt();
+});
+autoBuilderMaxInsanity.addEventListener("input",()=>{
+  document.getElementById("auto-builder-max-insanity-value").textContent=autoBuilderMaxInsanity.value;
+  autoBuilderResults=[];
+  renderAutoBuilderTargetPrompt();
+});
+autoBuilderMaxDrawback.addEventListener("input",()=>{
+  document.getElementById("auto-builder-max-drawback-value").textContent=autoBuilderMaxDrawback.value;
+  autoBuilderResults=[];
+  renderAutoBuilderTargetPrompt();
+});
+document.getElementById("auto-builder-optimize-ep").addEventListener("change",()=>{
+  renderAutoBuilderTargets();
+  autoBuilderResults=[];
+  renderAutoBuilderTargetPrompt();
+});
+document.getElementById("auto-builder-match-warding").addEventListener("change",()=>{
+  renderAutoBuilderTargets();
+  autoBuilderResults=[];
+  document.getElementById("generate-auto-builds").disabled=!canRunAutoBuilder();
+  renderAutoBuilderTargetPrompt();
+});
+document.getElementById("generate-auto-builds").addEventListener("click",runAutoBuilder);
+autoBuilderDialog.addEventListener("click",event=>{
+  if(event.target===autoBuilderDialog||event.target.closest("[data-close-auto-builder]"))autoBuilderDialog.close();
+  const useButton=event.target.closest("[data-use-auto-build]");
+  if(useButton){
+    const result=autoBuilderResults[Number(useButton.dataset.useAutoBuild)];
+    if(!result)return;
+    build.level=clampGameLevel(document.getElementById("auto-builder-level").value);
+    build.gear={...structuredClone(starter.gear),...structuredClone(result.gear)};
+    for(const slot of SLOTS)resetSlotPickerState(slot.id);
+    sanitizeGearModifiers(build.gear,build.level);
+    render();persist();
+    autoBuilderDialog.close();
+    showToast("Auto build added. You can edit every item and setting.");
+  }
+});

@@ -3217,7 +3217,7 @@ window.BUILDER_NEW_ARMOR_DATA = [
       "defense": 0.4,
       "resistance": 0.24
     },
-    "type": "Dragon Accessory"
+    "type": "Dragon Chestpiece"
   },
   {
     "jewels": 2,
